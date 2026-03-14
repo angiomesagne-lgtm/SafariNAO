@@ -1178,3 +1178,224 @@ webview.visible { display: flex; }
   border-radius: 8px; padding: 9px 11px;
 }
 .ext-note i { color: var(--yellow); }
+
+/* ── Language selector ────────────────────────────────────── */
+#lang-select {
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--txt);
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+  max-width: 140px;
+}
+#lang-select option {
+  background: var(--surface2);
+  color: var(--txt);
+  font-size: 12px;
+}
+
+/* ── Extensions Quick Bar ─────────────────────────────────── */
+#ext-quick-bar {
+  height: 32px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  flex-shrink: 0;
+  transition: height 0.2s, opacity 0.2s;
+}
+#ext-quick-bar::-webkit-scrollbar { display: none; }
+#ext-quick-bar.hidden { display: none; }
+#ext-quick-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.ext-quick-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--txt2);
+  cursor: pointer;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-family: var(--font);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ext-quick-btn:hover { background: var(--surface3); color: var(--txt); border-color: var(--accent); }
+.ext-quick-btn i { font-size: 10px; color: var(--accent); }
+
+.ext-qbar-manage {
+  background: none;
+  border: none;
+  color: var(--txt3);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  transition: color 0.12s, background 0.12s;
+  flex-shrink: 0;
+}
+.ext-qbar-manage:hover { color: var(--txt); background: var(--surface2); }
+
+/* Highlight ext bar toggle button when active */
+#btn-ext-bar.active { color: var(--accent); background: rgba(10,132,255,0.12); }
+
+/* Translate button */
+#btn-translate { position: relative; }
+
+/* ── Extensions sub-tabs ──────────────────────────────────── */
+.ext-subtabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 10px;
+  background: var(--surface3);
+  border-radius: 8px;
+  padding: 3px;
+}
+.ext-stab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--txt3);
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: var(--font);
+  font-weight: 500;
+  transition: background 0.12s, color 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.ext-stab:hover  { background: var(--surface2); color: var(--txt2); }
+.ext-stab.active { background: var(--surface);  color: var(--txt);  }
+.ext-stab.active i { color: var(--accent); }
+
+.ext-subpanel { display: flex; flex-direction: column; gap: 6px; }
+.ext-subpanel.hidden { display: none; }
+
+/* ── Community store URL row ──────────────────────────────── */
+.community-url-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.community-url-row input {
+  flex-grow: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 10px;
+  color: var(--txt);
+  font-size: 11px;
+  font-family: var(--mono);
+  transition: border-color 0.2s;
+}
+.community-url-row input:focus { border-color: var(--accent); }
+.community-url-row input::placeholder { color: var(--txt3); font-size: 10.5px; }
+.community-url-row .pw-add-btn {
+  padding: 6px 12px;
+  flex-shrink: 0;
+}
+
+/* ── Community plugin card ────────────────────────────────── */
+#community-store-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  max-height: 50vh;
+}
+.community-plugin-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: border-color 0.15s;
+}
+.community-plugin-card:hover { border-color: var(--border2); }
+
+.cpcard-icon {
+  font-size: 22px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface3);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.cpcard-info {
+  flex-grow: 1;
+  min-width: 0;
+}
+.cpcard-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--txt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cpcard-desc {
+  font-size: 11px;
+  color: var(--txt2);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cpcard-meta {
+  font-size: 10px;
+  color: var(--txt3);
+  margin-top: 2px;
+  font-family: var(--mono);
+}
+.cpcard-install-btn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font);
+  transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.cpcard-install-btn:hover   { background: var(--accent-h); }
+.cpcard-install-btn:active  { transform: scale(0.96); }
+.cpcard-install-btn:disabled {
+  background: var(--surface3);
+  color: var(--txt3);
+  cursor: default;
+}
