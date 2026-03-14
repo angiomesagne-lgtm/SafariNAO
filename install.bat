@@ -1,173 +1,177 @@
 @echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul 2>&1
+
+:: Forza apertura in una nuova finestra cmd che resta aperta
+:: Se viene eseguito con doppio click (no argomento), si rilancia in una nuova finestra
+if "%~1"=="" (
+    start "SafariNAO Installer" cmd /k ""%~f0" RUNNING & echo. & echo Premi un tasto per chiudere... & pause >nul"
+    exit /b
+)
+
 title SafariNAO — Installer
-
-:: ═══════════════════════════════════════════════════════════════
-::  SafariNAO Installer
-::  Installa dipendenze, compila l'exe, avvia l'app,
-::  crea scorciatoia sul Desktop.
-:: ═══════════════════════════════════════════════════════════════
-
-set "PROJ_DIR=%~dp0"
-set "PROJ_DIR=%PROJ_DIR:~0,-1%"
-set "EXE_NAME=SafariNAO.exe"
-set "SHORTCUT_NAME=SafariNAO"
-set "OUT_DIR=%PROJ_DIR%\out\SafariNAO-win32-x64"
-set "EXE_PATH=%OUT_DIR%\%EXE_NAME%"
+color 0F
 
 echo.
-echo  ╔══════════════════════════════════════════════╗
-echo  ║         SafariNAO  —  Installer              ║
-echo  ║     Fast · Private · Ad-Free Browser         ║
-echo  ╚══════════════════════════════════════════════╝
+echo  =====================================================
+echo   SafariNAO  -  Installer
+echo   Fast . Private . Ad-Free Browser
+echo  =====================================================
+echo.
+echo  Cartella progetto: %~dp0
 echo.
 
-:: ── 1. Controlla se siamo nella cartella giusta ─────────────
-if not exist "%PROJ_DIR%\package.json" (
-    echo  [ERRORE] package.json non trovato.
-    echo  Assicurati di aver messo questo file nella
-    echo  stessa cartella del progetto SafariNAO.
+cd /d "%~dp0"
+
+:: ── Controlla package.json ────────────────────────────────────
+if not exist "package.json" (
+    echo  [ERRORE] package.json non trovato!
+    echo.
+    echo  Assicurati che install.bat sia nella stessa cartella
+    echo  del progetto ^(dove ci sono main.js, index.html, ecc.^)
     echo.
     pause
     exit /b 1
 )
+echo  [OK] package.json trovato.
 
-:: ── 2. Controlla Node.js ─────────────────────────────────────
-echo  [1/6] Verifica Node.js...
+:: ── Controlla Node.js ─────────────────────────────────────────
+echo  [..] Controllo Node.js...
 where node >nul 2>&1
 if %errorlevel% neq 0 (
     echo.
-    echo  [!] Node.js non trovato. Apertura pagina download...
-    echo      Installa Node.js LTS da: https://nodejs.org
-    echo      Poi riavvia questo installer.
+    echo  [ERRORE] Node.js non e' installato!
+    echo.
+    echo  1. Vai su: https://nodejs.org
+    echo  2. Scarica la versione LTS
+    echo  3. Installala con le opzioni di default
+    echo  4. Riapri install.bat
     echo.
     start https://nodejs.org/en/download
     pause
     exit /b 1
 )
-for /f "tokens=*" %%v in ('node --version 2^>nul') do set NODE_VER=%%v
-echo      Node.js %NODE_VER% trovato.
+for /f "tokens=*" %%v in ('node --version 2^>nul') do set "NODE_VER=%%v"
+echo  [OK] Node.js %NODE_VER%
 
-:: ── 3. Controlla npm ─────────────────────────────────────────
+:: ── Controlla npm ─────────────────────────────────────────────
 where npm >nul 2>&1
 if %errorlevel% neq 0 (
     echo  [ERRORE] npm non trovato. Reinstalla Node.js.
     pause
     exit /b 1
 )
-for /f "tokens=*" %%v in ('npm --version 2^>nul') do set NPM_VER=%%v
-echo      npm %NPM_VER% trovato.
-
-:: ── 4. Installa dipendenze npm ───────────────────────────────
+for /f "tokens=*" %%v in ('npm --version 2^>nul') do set "NPM_VER=%%v"
+echo  [OK] npm %NPM_VER%
 echo.
-echo  [2/6] Installazione dipendenze npm...
-cd /d "%PROJ_DIR%"
 
-if exist "%PROJ_DIR%\node_modules" (
-    echo      node_modules esistente — aggiornamento...
-    call npm install --prefer-offline 2>&1
-) else (
-    echo      Prima installazione — potrebbe richiedere alcuni minuti...
-    call npm install 2>&1
+:: ── npm install ───────────────────────────────────────────────
+echo  [1/4] Installazione dipendenze npm...
+echo        (potrebbe richiedere qualche minuto)
+echo.
+
+if exist "node_modules" (
+    echo        node_modules gia' presente, aggiornamento...
 )
 
-if %errorlevel% neq 0 (
+call npm install
+set "NPM_ERR=%errorlevel%"
+if %NPM_ERR% neq 0 (
     echo.
-    echo  [ERRORE] npm install fallito. Controlla la connessione internet.
-    pause
-    exit /b 1
-)
-echo      Dipendenze installate con successo.
-
-:: ── 5. Verifica electron-forge ───────────────────────────────
-echo.
-echo  [3/6] Verifica electron-forge...
-if not exist "%PROJ_DIR%\node_modules\.bin\electron-forge.cmd" (
-    if not exist "%PROJ_DIR%\node_modules\.bin\electron-forge" (
-        echo      electron-forge non trovato, installazione...
-        call npm install --save-dev @electron-forge/cli 2>&1
-    )
-)
-echo      electron-forge pronto.
-
-:: ── 6. Build dell'applicazione ───────────────────────────────
-echo.
-echo  [4/6] Compilazione SafariNAO...
-echo      (questa operazione richiede 1-3 minuti la prima volta)
-echo.
-
-cd /d "%PROJ_DIR%"
-call npx electron-forge package 2>&1
-
-if %errorlevel% neq 0 (
+    echo  [ERRORE] npm install fallito ^(codice: %NPM_ERR%^)
     echo.
-    echo  [ERRORE] Build fallita.
-    echo  Dettagli sopra. Prova a cancellare node_modules
-    echo  ed eseguire di nuovo l'installer.
+    echo  Possibili cause:
+    echo  - Nessuna connessione internet
+    echo  - Permessi insufficienti ^(prova "Esegui come amministratore"^)
+    echo  - Cartella node_modules corrotta ^(cancellala e riprova^)
     echo.
     pause
     exit /b 1
 )
+echo.
+echo  [OK] Dipendenze installate.
+echo.
 
-:: Cerca l'exe nella cartella out (electron-forge può cambiare il path)
-if not exist "%EXE_PATH%" (
-    echo  Ricerca SafariNAO.exe in out\...
-    for /r "%PROJ_DIR%\out" %%f in (%EXE_NAME%) do (
+:: ── Build con electron-forge ──────────────────────────────────
+echo  [2/4] Compilazione SafariNAO.exe...
+echo        ^(la prima volta ci vogliono 2-5 minuti^)
+echo.
+
+call npx electron-forge package
+set "FORGE_ERR=%errorlevel%"
+if %FORGE_ERR% neq 0 (
+    echo.
+    echo  [ERRORE] Build fallita ^(codice: %FORGE_ERR%^)
+    echo.
+    echo  Prova:
+    echo  1. Cancella la cartella "out" se esiste
+    echo  2. Cancella "node_modules" e riesegui
+    echo  3. Esegui come amministratore
+    echo.
+    pause
+    exit /b 1
+)
+echo.
+echo  [OK] Build completata.
+echo.
+
+:: ── Trova l'exe ───────────────────────────────────────────────
+echo  [3/4] Ricerca SafariNAO.exe...
+
+set "EXE_PATH="
+for /r "%~dp0out" %%f in (SafariNAO.exe) do (
+    if not defined EXE_PATH (
         set "EXE_PATH=%%f"
-        set "OUT_DIR=%%~dpf"
-        set "OUT_DIR=!OUT_DIR:~0,-1!"
+        set "EXE_DIR=%%~dpf"
     )
 )
 
-if not exist "%EXE_PATH%" (
-    echo  [ERRORE] SafariNAO.exe non trovato dopo la build.
-    echo  Controlla la cartella: %PROJ_DIR%\out
+:: Rimuovi backslash finale da EXE_DIR
+if defined EXE_DIR (
+    set "EXE_DIR=!EXE_DIR:~0,-1!"
+)
+
+if not defined EXE_PATH (
+    echo  [ERRORE] SafariNAO.exe non trovato nella cartella out\
+    echo.
+    echo  Controlla manualmente: %~dp0out\
     pause
     exit /b 1
 )
-
-echo      Build completata: %EXE_PATH%
-
-:: ── 7. Crea scorciatoia sul Desktop ─────────────────────────
+echo  [OK] Trovato: !EXE_PATH!
 echo.
-echo  [5/6] Creazione scorciatoia sul Desktop...
+
+:: ── Scorciatoia Desktop ───────────────────────────────────────
+echo  [4/4] Creazione scorciatoia Desktop...
 
 set "DESKTOP=%USERPROFILE%\Desktop"
-set "SHORTCUT_PATH=%DESKTOP%\%SHORTCUT_NAME%.lnk"
+set "LNK=%DESKTOP%\SafariNAO.lnk"
 
-:: Usa PowerShell per creare la scorciatoia .lnk
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$ws = New-Object -ComObject WScript.Shell; ^
-   $s = $ws.CreateShortcut('%SHORTCUT_PATH%'); ^
-   $s.TargetPath = '%EXE_PATH%'; ^
-   $s.WorkingDirectory = '%OUT_DIR%'; ^
-   $s.Description = 'SafariNAO Browser - Fast, Private, Ad-Free'; ^
-   $s.IconLocation = '%EXE_PATH%,0'; ^
-   $s.Save()" 2>&1
+    "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('!LNK!'); $s.TargetPath = '!EXE_PATH!'; $s.WorkingDirectory = '!EXE_DIR!'; $s.Description = 'SafariNAO Browser'; $s.IconLocation = '!EXE_PATH!,0'; $s.Save()" 2>nul
 
-if exist "%SHORTCUT_PATH%" (
-    echo      Scorciatoia creata: %SHORTCUT_PATH%
+if exist "!LNK!" (
+    echo  [OK] Scorciatoia creata sul Desktop.
 ) else (
-    echo  [!] Scorciatoia non creata ^(permessi Desktop?^)
-    echo      Puoi avviare SafariNAO da: %EXE_PATH%
+    echo  [!] Scorciatoia non creata ^(problema permessi Desktop^)
+    echo      Puoi avviare l'app da: !EXE_PATH!
 )
-
-:: ── 8. Avvia l'applicazione ──────────────────────────────────
-echo.
-echo  [6/6] Avvio SafariNAO...
-echo.
-echo  ╔══════════════════════════════════════════════╗
-echo  ║  ✓  Installazione completata!                ║
-echo  ║                                              ║
-echo  ║  Scorciatoia: Desktop\SafariNAO              ║
-echo  ║  Eseguibile:  out\SafariNAO-win32-x64\       ║
-echo  ╚══════════════════════════════════════════════╝
 echo.
 
-start "" "%EXE_PATH%"
-
-echo  SafariNAO avviato. Puoi chiudere questa finestra.
+:: ── Riepilogo e avvio ─────────────────────────────────────────
+echo  =====================================================
+echo   Installazione completata con successo!
+echo  =====================================================
 echo.
-timeout /t 3 /nobreak >nul
+echo   Exe:          !EXE_PATH!
+echo   Desktop:      %DESKTOP%\SafariNAO.lnk
+echo.
+echo  Avvio SafariNAO in corso...
+echo.
+
+start "" "!EXE_PATH!"
+
+echo  Fatto! Puoi chiudere questa finestra.
+echo.
+pause
 exit /b 0
