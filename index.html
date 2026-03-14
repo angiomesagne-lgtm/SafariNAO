@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="style.css">
+  <script src="i18n.js"></script>
 </head>
 <body>
 
@@ -72,15 +73,25 @@
       <button class="zoom-btn" onclick="changeZoom(0.1)"  title="Ingrandisci"><i class="fas fa-plus"></i></button>
     </div>
 
+    <button class="nav-btn" onclick="translateCurrentPage()" title="Traduci pagina" id="btn-translate"><i class="fas fa-language"></i></button>
     <button class="nav-btn" onclick="toggleFind()"           title="Cerca nella pagina (Ctrl+F)"><i class="fas fa-magnifying-glass"></i></button>
     <button class="nav-btn" onclick="togglePanel('history')" title="Cronologia (Ctrl+H)"><i class="fas fa-clock-rotate-left"></i></button>
     <button class="nav-btn" onclick="togglePanel('bookmarks')" title="Preferiti"><i class="fas fa-star"></i></button>
+    <button class="nav-btn" onclick="toggleExtBar()" id="btn-ext-bar" title="Estensioni"><i class="fas fa-puzzle-piece"></i></button>
     <button class="nav-btn" onclick="toggleMenu()" id="menu-btn" title="Menu"><i class="fas fa-ellipsis-vertical"></i></button>
   </div>
 </nav>
 
 <!-- ═══════════════ BOOKMARKS BAR ═══════════════ -->
 <div id="bookmarks-bar"></div>
+
+<!-- ═══════════════ EXTENSIONS QUICK BAR ═══════════════ -->
+<div id="ext-quick-bar" class="hidden">
+  <div id="ext-quick-bar-inner"></div>
+  <button class="ext-qbar-manage" onclick="togglePanel('extensions')" title="Gestisci estensioni">
+    <i class="fas fa-puzzle-piece"></i>
+  </button>
+</div>
 
 <!-- ═══════════════ STAGE ═══════════════ -->
 <div id="stage">
@@ -149,31 +160,31 @@
 <!-- ═══════════════ DROPDOWN MENU ═══════════════ -->
 <div id="dropdown-menu" class="panel-popup hidden">
   <div class="pm-item" onclick="createTab(); closeMenus()">
-    <i class="fas fa-plus"></i><span>Nuova scheda</span><kbd>Ctrl+T</kbd>
+    <i class="fas fa-plus"></i><span data-i18n="new_tab_menu">Nuova scheda</span><kbd>Ctrl+T</kbd>
   </div>
   <div class="pm-item" onclick="duplicateTab(); closeMenus()">
-    <i class="fas fa-clone"></i><span>Duplica scheda</span>
+    <i class="fas fa-clone"></i><span data-i18n="duplicate_tab">Duplica scheda</span>
   </div>
   <div class="pm-item" onclick="goHome(); closeMenus()">
-    <i class="fas fa-house"></i><span>Pagina iniziale</span>
+    <i class="fas fa-house"></i><span data-i18n="home_menu">Pagina iniziale</span>
   </div>
   <div class="pm-sep"></div>
   <div class="pm-item" onclick="toggleFind(); closeMenus()">
-    <i class="fas fa-magnifying-glass"></i><span>Cerca nella pagina</span><kbd>Ctrl+F</kbd>
+    <i class="fas fa-magnifying-glass"></i><span data-i18n="find_in_page">Cerca nella pagina</span><kbd>Ctrl+F</kbd>
   </div>
   <div class="pm-item" onclick="savePage(); closeMenus()">
-    <i class="fas fa-floppy-disk"></i><span>Salva pagina</span><kbd>Ctrl+S</kbd>
+    <i class="fas fa-floppy-disk"></i><span data-i18n="save_page">Salva pagina</span><kbd>Ctrl+S</kbd>
   </div>
   <div class="pm-item" onclick="activeWV()?.print(); closeMenus()">
-    <i class="fas fa-print"></i><span>Stampa</span><kbd>Ctrl+P</kbd>
+    <i class="fas fa-print"></i><span data-i18n="print">Stampa</span><kbd>Ctrl+P</kbd>
   </div>
   <div class="pm-sep"></div>
   <div class="pm-item" id="menu-adblock" onclick="toggleAdblock()">
-    <i class="fas fa-shield-halved"></i><span>AdBlock</span>
+    <i class="fas fa-shield-halved"></i><span data-i18n="adblock_label">AdBlock</span>
     <span class="pm-toggle on" id="adblock-toggle"></span>
   </div>
   <div class="pm-item" id="menu-bm-bar" onclick="toggleBookmarksBar()">
-    <i class="fas fa-bars"></i><span>Barra preferiti</span>
+    <i class="fas fa-bars"></i><span data-i18n="bm_bar_toggle">Barra preferiti</span>
     <span class="pm-toggle on" id="bm-bar-toggle"></span>
   </div>
   <div class="pm-sep"></div>
@@ -181,11 +192,11 @@
     <i class="fas fa-brain"></i><span>Prysma AI</span>
   </div>
   <div class="pm-item" onclick="activeWV()?.openDevTools(); closeMenus()">
-    <i class="fas fa-code"></i><span>Strumenti sviluppatore</span><kbd>F12</kbd>
+    <i class="fas fa-code"></i><span data-i18n="dev_tools">Strumenti sviluppatore</span><kbd>F12</kbd>
   </div>
   <div class="pm-sep"></div>
   <div class="pm-item danger" onclick="ipcRenderer.send('window-ctrl','close')">
-    <i class="fas fa-power-off"></i><span>Esci</span>
+    <i class="fas fa-power-off"></i><span data-i18n="quit">Esci</span>
   </div>
 </div>
 
@@ -229,30 +240,36 @@
 
     <!-- Settings inline -->
     <div class="settings-section">
-      <h4>Impostazioni</h4>
+      <h4 id="s-settings">Impostazioni</h4>
       <div class="setting-row">
         <div class="sr-label">
-          AdBlock
-          <span class="sr-sub">Blocca pubblicità automaticamente</span>
+          <span id="s-adblock-label">AdBlock</span>
+          <span class="sr-sub" id="s-adblock-sub">Blocca pubblicità automaticamente</span>
         </div>
         <button class="toggle-switch on" id="toggle-adblock" onclick="toggleAdblock()"></button>
       </div>
       <div class="setting-row">
         <div class="sr-label">
-          Barra preferiti
-          <span class="sr-sub">Mostra sotto la barra degli indirizzi</span>
+          <span id="s-bmbar-label">Barra preferiti</span>
+          <span class="sr-sub" id="s-bmbar-sub">Mostra sotto la barra degli indirizzi</span>
         </div>
         <button class="toggle-switch on" id="toggle-bm-bar" onclick="toggleBookmarksBar()"></button>
       </div>
       <div class="setting-row">
-        <div class="sr-label">
-          Motore di ricerca
-        </div>
+        <div class="sr-label" id="s-search-engine">Motore di ricerca</div>
         <select class="se-select" id="se-select" onchange="changeSearchEngine(this.value)">
           <option value="google">Google</option>
           <option value="bing">Bing</option>
           <option value="duckduckgo">DuckDuckGo</option>
           <option value="brave">Brave</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div class="sr-label">
+          <span id="s-lang-label">Lingua</span>
+          <span class="sr-sub" id="s-lang-sub">Lingua dell'interfaccia</span>
+        </div>
+        <select class="se-select" id="lang-select" onchange="changeLanguage(this.value)" style="max-width:130px">
         </select>
       </div>
     </div>
@@ -296,42 +313,81 @@
   <div id="tab-extensions" class="panel-body hidden">
     <div class="ext-section">
 
-      <h4>Installa dal Web Store</h4>
-      <div class="ext-note">
-        <i class="fas fa-circle-check" style="color:var(--green)"></i>
-        Il browser si presenta come <strong>Chrome 120</strong> — il Chrome Web Store lo riconosce come browser compatibile.<br>
-        Clicca <strong>"Aggiungi a Chrome"</strong> su qualsiasi estensione: verrà installata automaticamente.
+      <!-- Sub-tabs -->
+      <div class="ext-subtabs">
+        <button class="ext-stab active" id="estab-stores"    onclick="showExtSubtab('stores')"><i class="fas fa-store"></i> Store</button>
+        <button class="ext-stab"        id="estab-community" onclick="showExtSubtab('community')"><i class="fas fa-users"></i> Community</button>
+        <button class="ext-stab"        id="estab-installed" onclick="showExtSubtab('installed')"><i class="fas fa-puzzle-piece"></i> Installate</button>
       </div>
-      <div class="ext-store-btns">
-        <div class="ext-store-btn" onclick="navigate('https://chromewebstore.google.com/')">
-          <i class="fab fa-chrome" style="color:#4285f4"></i>
-          <div class="esb-info">
-            <span class="esb-name">Chrome Web Store</span>
-            <span class="esb-sub">Estensioni Chrome — installazione automatica</span>
-          </div>
-          <i class="fas fa-arrow-up-right-from-square" style="margin-left:auto;font-size:11px;color:var(--txt3)"></i>
+
+      <!-- STORES sub-tab -->
+      <div id="extpanel-stores" class="ext-subpanel">
+        <div class="ext-note">
+          <i class="fas fa-circle-check" style="color:var(--green)"></i>
+          Il browser si presenta come <strong>Chrome 120</strong>.
+          Accedi a Google nel Web Store e clicca <strong>"Aggiungi a Chrome"</strong>: installazione automatica.
         </div>
-        <div class="ext-store-btn" onclick="navigate('https://microsoftedge.microsoft.com/addons/')">
-          <i class="fab fa-edge" style="color:#0078d7"></i>
-          <div class="esb-info">
-            <span class="esb-name">Microsoft Edge Add-ons</span>
-            <span class="esb-sub">Scarica .crx e carica come file locale</span>
+        <div class="ext-store-btns">
+          <div class="ext-store-btn" onclick="navigate('https://chromewebstore.google.com/')">
+            <i class="fab fa-chrome" style="color:#4285f4"></i>
+            <div class="esb-info">
+              <span class="esb-name">Chrome Web Store</span>
+              <span class="esb-sub">Estensioni ufficiali Google</span>
+            </div>
+            <i class="fas fa-arrow-up-right-from-square" style="margin-left:auto;font-size:11px;color:var(--txt3)"></i>
           </div>
-          <i class="fas fa-arrow-up-right-from-square" style="margin-left:auto;font-size:11px;color:var(--txt3)"></i>
+          <div class="ext-store-btn" onclick="navigate('https://microsoftedge.microsoft.com/addons/')">
+            <i class="fab fa-edge" style="color:#0078d7"></i>
+            <div class="esb-info">
+              <span class="esb-name">Microsoft Edge Add-ons</span>
+              <span class="esb-sub">Compatibile Chromium</span>
+            </div>
+            <i class="fas fa-arrow-up-right-from-square" style="margin-left:auto;font-size:11px;color:var(--txt3)"></i>
+          </div>
+        </div>
+
+        <h4 style="margin-top:10px">Carica Estensione Locale</h4>
+        <div class="ext-note" style="margin-bottom:6px">
+          <i class="fas fa-folder-open"></i>
+          Carica una cartella <em>unpacked</em>. L'estensione sarà persistente tra i riavvii.
+        </div>
+        <button class="pw-add-btn" style="width:100%;justify-content:center;display:flex;gap:8px;align-items:center" onclick="loadLocalExtension()">
+          <i class="fas fa-folder-open"></i> Carica cartella estensione…
+        </button>
+      </div>
+
+      <!-- COMMUNITY sub-tab -->
+      <div id="extpanel-community" class="ext-subpanel hidden">
+        <div class="ext-note" style="margin-bottom:8px">
+          <i class="fas fa-flask" style="color:var(--accent)"></i>
+          <strong>Store Community SafariNAO</strong><br>
+          Plugin creati dalla community. Incolla l'URL del tuo store o usa quello ufficiale.
+        </div>
+
+        <!-- URL personalizzabile -->
+        <div class="community-url-row">
+          <input type="text" id="community-store-url"
+            placeholder="https://tuo-store-community.com/plugins.json"
+            value="https://safarinao.community/plugins.json"
+            oninput="saveCommunityUrl()">
+          <button class="pw-add-btn" onclick="loadCommunityStore()" title="Carica">
+            <i class="fas fa-rotate-right"></i>
+          </button>
+        </div>
+
+        <div id="community-store-list">
+          <div class="empty-state" style="padding:20px 0">
+            <i class="fas fa-store"></i>
+            <p>Clicca ↻ per caricare i plugin</p>
+          </div>
         </div>
       </div>
 
-      <h4 style="margin-top:8px">Carica Estensione Locale</h4>
-      <div class="ext-note" style="margin-bottom:6px">
-        <i class="fas fa-folder-open"></i>
-        Carica una cartella <em>unpacked</em> (estratta da uno .zip o .crx). L'estensione sarà persistente tra i riavvii.
+      <!-- INSTALLED sub-tab -->
+      <div id="extpanel-installed" class="ext-subpanel hidden">
+        <div id="ext-loaded-list" style="display:flex;flex-direction:column;gap:5px;margin-top:2px"></div>
       </div>
-      <button class="pw-add-btn" style="width:100%;justify-content:center;display:flex;gap:8px;align-items:center" onclick="loadLocalExtension()">
-        <i class="fas fa-folder-open"></i> Carica cartella estensione…
-      </button>
 
-      <h4 style="margin-top:10px">Estensioni installate</h4>
-      <div id="ext-loaded-list" style="display:flex;flex-direction:column;gap:5px"></div>
     </div>
   </div>
 </aside>
@@ -387,6 +443,7 @@ let currentZoom  = 1.0;
 let adblockOn    = true;
 let bmBarVisible = true;
 let searchEngine = 'google';
+let currentLang  = 'it';
 
 const SE_URLS = {
   google:    q => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
@@ -433,6 +490,15 @@ document.addEventListener('keydown', e => {
 
 // ── Load all data ────────────────────────────────
 async function loadAllData() {
+  // Popola selettore lingue
+  const langSel = document.getElementById('lang-select');
+  LANGUAGES.forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l.code;
+    opt.textContent = l.flag + ' ' + l.name;
+    langSel.appendChild(opt);
+  });
+
   try {
     const data = await ipcRenderer.invoke('get-data');
     const acc = data.account || {};
@@ -445,11 +511,15 @@ async function loadAllData() {
     bmBarVisible = s.bmBar      !== false;
     searchEngine = s.searchEngine || 'google';
     currentZoom  = s.zoom || 1.0;
+    currentLang  = s.language || navigator.language?.slice(0,2) || 'it';
+    if (!TRANSLATIONS[currentLang]) currentLang = 'it';
 
-    document.getElementById('se-select').value = searchEngine;
+    document.getElementById('se-select').value   = searchEngine;
+    document.getElementById('lang-select').value = currentLang;
     applyAdblockUI();
     applyBmBarUI();
     updateZoomUI();
+    applyLanguage(currentLang);
 
     allHistory   = data.history   || [];
     allBookmarks = data.bookmarks || [];
@@ -469,9 +539,9 @@ function createTab(url = null) {
   tab.innerHTML = `
     <div class="tab-spinner"></div>
     <div class="tab-favicon"><i class="fas fa-globe tab-globe"></i><img class="tab-favicon-img" src="" style="display:none" onerror="this.style.display='none';this.previousElementSibling.style.display='flex'"></div>
-    <span class="tab-title">Nuova scheda</span>
+    <span class="tab-title">${t('new_tab', currentLang)}</span>
     <i class="fas fa-volume-high tab-audio"></i>
-    <button class="tab-close" onclick="closeTab('${id}',event)" title="Chiudi scheda"><i class="fas fa-xmark"></i></button>`;
+    <button class="tab-close" onclick="closeTab('${id}',event)" title="${t('close_tab', currentLang)}"><i class="fas fa-xmark"></i></button>`;
 
   tab.addEventListener('click', e => { if (!e.target.closest('.tab-close')) switchTab(id); });
   tab.addEventListener('auxclick', e => { if (e.button === 1) closeTab(id, e); });
@@ -505,7 +575,7 @@ function createTab(url = null) {
   } catch(e) {}
   document.getElementById('wv-container').appendChild(wv);
 
-  tabs[id] = { wv, title: 'Nuova scheda', url: '', favicon: '' };
+  tabs[id] = { wv, title: t('new_tab', currentLang), url: '', favicon: '' };
   bindWV(id, wv);
   switchTab(id);
   if (url) navigate(url);
@@ -595,7 +665,22 @@ function bindWV(id, wv) {
     applyZoomToWV(wv);
   });
 
-  wv.addEventListener('new-window', e => createTab(e.url));
+  wv.addEventListener('new-window', e => {
+    // Spotify e altri siti aprono popup per autenticazione/player.
+    // Invece di aprire una nuova finestra OS (che causa il loop),
+    // navighiamo nella stessa tab o apriamo una nuova tab interna.
+    const url = e.url || '';
+    const disposition = e.disposition || '';
+
+    // Popup di autenticazione Spotify: naviga nella stessa tab
+    if (url.includes('accounts.spotify.com') || url.includes('spotify.com/auth') ||
+        disposition === 'new-popup' || disposition === 'save-to-disk') {
+      wv.loadURL(url);
+      return;
+    }
+    // Tutto il resto: nuova tab interna
+    createTab(url);
+  });
 
   wv.addEventListener('did-navigate', e => {
     if (!tabs[id]) return;
@@ -701,7 +786,7 @@ function toggleAdblock() {
   adblockOn = !adblockOn;
   applyAdblockUI();
   ipcRenderer.invoke('save-settings', { adblock: adblockOn }).catch(()=>{});
-  showToast(adblockOn ? 'AdBlock attivato' : 'AdBlock disattivato');
+  showToast(adblockOn ? t('adblock_on_toast', currentLang) : t('adblock_off_toast', currentLang));
 }
 function applyAdblockUI() {
   const badge  = document.getElementById('adblock-badge');
@@ -709,13 +794,13 @@ function applyAdblockUI() {
   const tog2   = document.getElementById('toggle-adblock');
   const chip   = document.getElementById('adblock-chip-text');
   if (adblockOn) {
-    badge.classList.remove('off'); badge.title = 'AdBlock attivo';
+    badge.classList.remove('off');
     tog1?.classList.add('on'); tog2?.classList.add('on');
-    if (chip) chip.textContent = 'AdBlock attivo';
+    if (chip) chip.textContent = t('adblock_on', currentLang);
   } else {
-    badge.classList.add('off'); badge.title = 'AdBlock disattivato';
+    badge.classList.add('off');
     tog1?.classList.remove('on'); tog2?.classList.remove('on');
-    if (chip) chip.textContent = 'AdBlock disattivato';
+    if (chip) chip.textContent = t('adblock_off', currentLang);
   }
 }
 
@@ -746,14 +831,14 @@ async function toggleBookmark() {
   if (isBookmarked) {
     await ipcRenderer.invoke('remove-bookmark', url);
     allBookmarks = allBookmarks.filter(b => b.url !== url);
-    showToast('Preferito rimosso');
+    showToast(t('bookmark_removed', currentLang));
   } else {
     const title   = tabs[activeTabId]?.title || url;
     const favicon = tabs[activeTabId]?.favicon || '';
     const bm = { url, title, favicon };
     await ipcRenderer.invoke('add-bookmark', bm);
     allBookmarks.unshift({ ...bm, id: Date.now() });
-    showToast('Aggiunto ai preferiti');
+    showToast(t('bookmark_added', currentLang));
   }
   updateBookmarkBtn(url);
   renderBookmarksBar();
@@ -843,6 +928,156 @@ function findKey(e) {
   if (e.key === 'Escape') closeFind();
 }
 
+// ── Language ──────────────────────────────────────
+function changeLanguage(code) {
+  if (!TRANSLATIONS[code]) return;
+  currentLang = code;
+  applyLanguage(code);
+  ipcRenderer.invoke('save-settings', { language: code }).catch(()=>{});
+  showToast(t('lang_changed', code) + ': ' + LANGUAGES.find(l=>l.code===code)?.name);
+}
+
+function applyLanguage(code) {
+  const L = getLang(code);
+  document.documentElement.lang = code;
+
+  // ── 1. Tutti gli elementi [data-i18n] nel DOM ───────────────
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (L[key] !== undefined) el.textContent = L[key];
+  });
+
+  // ── 2. Placeholder ──────────────────────────────────────────
+  const ph = (id, key) => { const el = document.getElementById(id); if (el) el.placeholder = L[key] || ''; };
+  ph('omnibar',        'search_placeholder');
+  ph('home-search',    'home_search_placeholder');
+  ph('find-input',     'find_placeholder');
+  ph('history-search', 'search_history');
+  ph('pw-search',      'search_pw');
+
+  // ── 3. Title dei bottoni nav ────────────────────────────────
+  const ti = (id, key) => { const el = document.getElementById(id); if (el) el.title = L[key] || ''; };
+  ti('btn-back',   'back');
+  ti('btn-fwd',    'forward');
+  ti('btn-reload', 'reload');
+  ti('btn-home',   'home');
+
+  // ── 4. Home subtitle ────────────────────────────────────────
+  const homeSub = document.querySelector('.home-sub');
+  if (homeSub) homeSub.textContent = L.home_sub || '';
+
+  // ── 5. Panel tabs (icona + testo) ───────────────────────────
+  const panelTabMap = {
+    'ptab-account':    ['fas fa-user',         'account'],
+    'ptab-history':    ['fas fa-clock',         'history'],
+    'ptab-bookmarks':  ['fas fa-star',          'bookmarks'],
+    'ptab-saved':      ['fas fa-bookmark',      'saved'],
+    'ptab-passwords':  ['fas fa-key',           'passwords'],
+    'ptab-extensions': ['fas fa-puzzle-piece',  'extensions'],
+  };
+  for (const [id, [icon, key]] of Object.entries(panelTabMap)) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<i class="${icon}"></i> ${L[key] || ''}`;
+  }
+
+  // ── 6. Settings section labels ──────────────────────────────
+  const st = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = L[key] || ''; };
+  st('s-settings',      'settings');
+  st('s-adblock-label', 'adblock_label');
+  st('s-adblock-sub',   'adblock_sub');
+  st('s-bmbar-label',   'bmbar_label');
+  st('s-bmbar-sub',     'bmbar_sub');
+  st('s-search-engine', 'search_engine');
+  st('s-lang-label',    'language');
+  st('s-lang-sub',      'language_sub');
+
+  // ── 7. Account form labels & placeholders ───────────────────
+  ph('acc-name',  'your_name');
+  ph('acc-email', 'your_email');
+  // Le label "Nome" / "Email" nel form account
+  const fieldLabels = document.querySelectorAll('#tab-account .field-group label');
+  if (fieldLabels[0]) fieldLabels[0].textContent = L.name_label  || '';
+  if (fieldLabels[1]) fieldLabels[1].textContent = L.email_label || '';
+
+  // ── 8. AdBlock chip ─────────────────────────────────────────
+  const chip = document.getElementById('adblock-chip-text');
+  if (chip) chip.textContent = adblockOn ? (L.adblock_on || '') : (L.adblock_off || '');
+
+  // ── 9. Clear data button ─────────────────────────────────────
+  const clearBtn = document.querySelector('#tab-account .danger-btn');
+  if (clearBtn) clearBtn.innerHTML = `<i class="fas fa-trash"></i> ${L.clear_data || ''}`;
+
+  // ── 10. History clear button title ───────────────────────────
+  const clearHistBtn = document.querySelector('.history-toolbar .icon-btn');
+  if (clearHistBtn) clearHistBtn.title = L.clear_history || '';
+
+  // ── 11. Password modal ───────────────────────────────────────
+  const pwModalTitle = document.querySelector('.pw-modal-title');
+  if (pwModalTitle) pwModalTitle.innerHTML = `<i class="fas fa-key" style="color:var(--accent);margin-right:8px"></i>${L.add_credentials || ''}`;
+  document.querySelectorAll('.pw-modal-cancel').forEach(el => el.textContent = L.cancel || '');
+  document.querySelectorAll('.pw-modal-save').forEach(el => el.textContent   = L.save   || '');
+
+  // Labels nel modal password
+  const pwModalLabels = document.querySelectorAll('.pw-modal-fields .field-group label');
+  if (pwModalLabels[0]) pwModalLabels[0].textContent = L.site_label     || '';
+  if (pwModalLabels[1]) pwModalLabels[1].textContent = L.username_label || '';
+  if (pwModalLabels[2]) pwModalLabels[2].textContent = L.pw_label       || '';
+  ph('pw-site', 'site_placeholder');
+  ph('pw-user', 'your_email');
+
+  // Add password button
+  const addPwBtn = document.querySelector('#tab-passwords .pw-add-btn');
+  if (addPwBtn) addPwBtn.innerHTML = `<i class="fas fa-plus"></i> ${L.add_pw || ''}`;
+
+  // ── 12. Tab "Nuova scheda" esistenti ─────────────────────────
+  // Aggiorna solo le tab che hanno ancora il titolo di default
+  // (non tocca quelle che hanno già caricato una pagina)
+  const newTabLabel = L.new_tab || 'New tab';
+  document.querySelectorAll('.tab-title').forEach(el => {
+    // Se il testo è uno dei titoli "Nuova scheda" in qualunque lingua, aggiorna
+    const isDefault = LANGUAGES.some(lang => {
+      const tr = TRANSLATIONS[lang.code];
+      return tr && el.textContent === (tr.new_tab || '');
+    });
+    if (isDefault) el.textContent = newTabLabel;
+  });
+  // Aggiorna anche tabs{} in memoria
+  Object.values(tabs).forEach(tab => {
+    const isDefault = LANGUAGES.some(lang => {
+      const tr = TRANSLATIONS[lang.code];
+      return tr && tab.title === (tr.new_tab || '');
+    });
+    if (isDefault) tab.title = newTabLabel;
+  });
+
+  // ── 13. Tab add button title ─────────────────────────────────
+  const tabAddBtn = document.querySelector('.tab-add-btn');
+  if (tabAddBtn) tabAddBtn.title = `${L.new_tab || ''} (Ctrl+T)`;
+
+  // ── 14. Extensions panel note ────────────────────────────────
+  const extNote = document.querySelector('#tab-extensions .ext-note');
+  if (extNote) extNote.innerHTML = `<i class="fas fa-circle-check" style="color:var(--green)"></i> ${L.ext_note || ''}`;
+
+  const loadLocalBtn = document.querySelector('#tab-extensions .pw-add-btn');
+  if (loadLocalBtn) loadLocalBtn.innerHTML = `<i class="fas fa-folder-open"></i> ${L.load_local_ext || ''}`;
+
+  const extH4s = document.querySelectorAll('#tab-extensions h4');
+  if (extH4s[0]) extH4s[0].textContent = L.install_from_store || '';
+  if (extH4s[1]) extH4s[1].textContent = L.installed_exts    || '';
+
+  // ── 15. Empty states ─────────────────────────────────────────
+  const emptyMap = {
+    '#history-list  .empty-state p': 'no_history',
+    '#bookmarks-list .empty-state p': 'no_bookmarks',
+    '#saved-list    .empty-state p': 'no_saved',
+    '#pw-list       .empty-state p': 'no_passwords',
+    '#ext-loaded-list .empty-state p': 'no_extensions',
+  };
+  for (const [sel, key] of Object.entries(emptyMap)) {
+    document.querySelectorAll(sel).forEach(el => { if (L[key]) el.textContent = L[key]; });
+  }
+}
+
 // ── Search engine ─────────────────────────────────
 function changeSearchEngine(val) {
   searchEngine = val;
@@ -910,7 +1145,7 @@ function setAvatarImg(src) {
   document.getElementById('avatar-icon').style.display = 'none';
 }
 async function confirmClearAll() {
-  if (!confirm('Cancellare tutti i dati (account, preferiti, cronologia, impostazioni)?')) return;
+  if (!confirm(t('clear_data_confirm', currentLang))) return;
   try { await ipcRenderer.invoke('clear-all'); } catch(e) {}
   document.getElementById('acc-name').value  = '';
   document.getElementById('acc-email').value = '';
@@ -961,7 +1196,7 @@ async function deleteHistoryItem(index, e) {
   try { await ipcRenderer.invoke('delete-history-item', index); allHistory.splice(index, 1); renderHistory(allHistory); } catch(e) {}
 }
 async function clearHistory() {
-  if (!confirm('Cancellare tutta la cronologia?')) return;
+  if (!confirm(t('clear_history_confirm', currentLang))) return;
   try { await ipcRenderer.invoke('clear-history'); allHistory = []; renderHistory([]); } catch(e) {}
 }
 
@@ -1010,6 +1245,132 @@ async function clearHistory() {
   });
 })();
 
+// ── Traduzione pagina ──────────────────────────────
+// Inietta il Google Translate Element direttamente nel webview,
+// evitando il proxy che triggera il CAPTCHA.
+const LANG_TO_GOOGLE = {
+  it:'it', en:'en', fr:'fr', es:'es', de:'de', pt:'pt', nl:'nl',
+  sv:'sv', no:'no', da:'da', fi:'fi', pl:'pl', ru:'ru', ja:'ja', zh:'zh-CN'
+};
+
+function translatePage(tabId, wv) {
+  const url = tabs[tabId]?.url || '';
+  if (!url || url.startsWith('about:')) return;
+  const tl = LANG_TO_GOOGLE[currentLang] || 'it';
+
+  // Inietta Google Translate Element nella pagina corrente.
+  // Questo è lo stesso metodo usato da estensioni browser legittime:
+  // carica lo script del widget GT e attiva la traduzione programmaticamente.
+  const script = `
+    (function() {
+      // Se già tradotta, rimuovi e ripristina
+      if (window._snaoTranslateActive) {
+        const el = document.getElementById('google_translate_element');
+        if (el) el.remove();
+        const frame = document.querySelector('.goog-te-banner-frame');
+        if (frame) frame.remove();
+        document.body.style.top = '';
+        if (window.google && window.google.translate) {
+          try { window.google.translate.TranslateElement.getInstance().restore(); } catch(e){}
+        }
+        window._snaoTranslateActive = false;
+        return 'restored';
+      }
+
+      // Crea container nascosto
+      const div = document.createElement('div');
+      div.id = 'google_translate_element';
+      div.style.cssText = 'position:fixed;top:-9999px;left:-9999px;z-index:-1';
+      document.body.appendChild(div);
+
+      window._snaoTranslateActive = true;
+
+      // Callback chiamata quando GT è pronto
+      window.googleTranslateElementInit = function() {
+        new google.translate.TranslateElement({
+          pageLanguage: 'auto',
+          includedLanguages: '${tl}',
+          autoDisplay: true,
+          layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+        }, 'google_translate_element');
+
+        // Forza la traduzione dopo 800ms
+        setTimeout(function() {
+          try {
+            const sel = document.querySelector('.goog-te-combo');
+            if (sel) { sel.value = '${tl}'; sel.dispatchEvent(new Event('change')); }
+          } catch(e){}
+        }, 800);
+      };
+
+      // Carica lo script GT
+      const s = document.createElement('script');
+      s.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      s.onerror = function() {
+        // Fallback: apri translate.google.com in nuova scheda
+        window.open('https://translate.google.com/translate?sl=auto&tl=${tl}&u=' + encodeURIComponent(location.href), '_blank');
+      };
+      document.head.appendChild(s);
+      return 'injected';
+    })()
+  `;
+
+  wv.executeJavaScript(script).then(result => {
+    if (result === 'restored') showToast('Traduzione rimossa');
+    else showToast('⏳ Traduzione in corso…', 2000);
+  }).catch(() => showToast('Errore traduzione'));
+}
+
+// Pulsante "Traduci" nella navbar
+function translateCurrentPage() {
+  const wv = activeWV();
+  if (wv && activeTabId) translatePage(activeTabId, wv);
+  else showToast(t('no_page', currentLang));
+}
+
+// ── Quick Extension Bar ────────────────────────────
+// Barra sopra il contenuto che mostra le icone delle estensioni attive
+let extBarVisible = false;
+
+function toggleExtBar() {
+  extBarVisible = !extBarVisible;
+  const bar = document.getElementById('ext-quick-bar');
+  const btn = document.getElementById('btn-ext-bar');
+  bar.classList.toggle('hidden', !extBarVisible);
+  btn?.classList.toggle('active', extBarVisible);
+  if (extBarVisible) refreshExtQuickBar();
+}
+
+async function refreshExtQuickBar() {
+  const bar = document.getElementById('ext-quick-bar-inner');
+  if (!bar) return;
+  try {
+    const exts = await ipcRenderer.invoke('get-extensions');
+    if (!exts || !exts.length) {
+      bar.innerHTML = `<span style="font-size:11px;color:var(--txt3);padding:0 8px">${t('no_extensions', currentLang)}</span>`;
+      return;
+    }
+    bar.innerHTML = exts.map(ext => `
+      <button class="ext-quick-btn" title="${escJs(ext.name)}" onclick="openExtPopup('${ext.id}','${escJs(ext.name)}')">
+        <i class="fas fa-puzzle-piece"></i>
+        <span>${ext.name.slice(0,12)}${ext.name.length>12?'…':''}</span>
+      </button>
+    `).join('');
+  } catch(e) {}
+}
+
+function openExtPopup(extId, name) {
+  // Apre la popup page dell'estensione se disponibile
+  showToast(`${name} — usa la pagina dell'estensione nella barra indirizzi`);
+}
+
+// Aggiorna la quick bar quando si installa/rimuove un'estensione
+ipcRenderer.on('extension-installed', (e, { name }) => {
+  showToast(`✓ ${t('ext_active', currentLang)}: ${name}`, 3500);
+  refreshExtList();
+  if (extBarVisible) refreshExtQuickBar();
+});
+
 // ── Context menu su webview ────────────────────────
 // Intercettiamo il tasto destro direttamente sul webview con executeJavaScript
 // per ottenere selezione e stato degli appunti in tempo reale.
@@ -1018,14 +1379,12 @@ function initWebviewContextMenu(id, wv) {
   wv.addEventListener('context-menu', async (e) => {
     const params = e.params || {};
 
-    // ── Posizione corretta ─────────────────────────
-    // e.params.x/y sono coordinate DENTRO il webview.
-    // Dobbiamo sommare l'offset del webview nel DOM.
+    // Posizione nel DOM (coordinate webview + offset elemento)
     const wvRect = wv.getBoundingClientRect();
     const menuX  = wvRect.left + (params.x || 0);
     const menuY  = wvRect.top  + (params.y || 0);
 
-    // Leggi selezione dal webview
+    // Selezione testo
     let selectedText = params.selectionText || '';
     if (!selectedText) {
       try { selectedText = await wv.executeJavaScript('window.getSelection().toString()'); } catch(_) {}
@@ -1041,63 +1400,98 @@ function initWebviewContextMenu(id, wv) {
       } catch(_) {}
     }
 
+    // Testo negli appunti
+    let clipText = '';
+    try { clipText = await navigator.clipboard.readText(); } catch(_) {}
+
+    const L = getLang(currentLang);
     const seName = { google:'Google', bing:'Bing', duckduckgo:'DuckDuckGo', brave:'Brave' }[searchEngine] || 'Google';
     const items  = [];
 
-    // Link
+    // ── Link ────────────────────────────────────────
     if (params.linkURL) {
-      items.push({ icon:'fas fa-arrow-up-right-from-square', label:'Apri in nuova scheda', action:() => createTab(params.linkURL) });
-      items.push({ icon:'fas fa-copy', label:'Copia indirizzo link', action:() => navigator.clipboard.writeText(params.linkURL) });
+      items.push({ icon:'fas fa-arrow-up-right-from-square', label: L.open_new_tab,  action:() => createTab(params.linkURL) });
+      items.push({ icon:'fas fa-copy',  label: L.copy_link, action:() => navigator.clipboard.writeText(params.linkURL) });
       items.push(null);
     }
 
-    // Testo selezionato
+    // ── Testo selezionato ────────────────────────────
     if (selectedText) {
       const preview = selectedText.length > 24 ? selectedText.slice(0,24)+'…' : selectedText;
-      items.push({ icon:'fas fa-copy', label:'Copia', action:() => {
-        // execCommand funziona solo nel contesto del webview
-        wv.executeJavaScript('document.execCommand("copy")').catch(() => {
-          navigator.clipboard.writeText(selectedText);
-        });
-      }});
-      if (isEditable)
-        items.push({ icon:'fas fa-scissors', label:'Taglia', action:() => wv.executeJavaScript('document.execCommand("cut")') });
-      items.push({ icon:'fas fa-magnifying-glass', label:`Cerca "${preview}" su ${seName}`, action:() => createTab(SE_URLS[searchEngine](selectedText)) });
-      items.push(null);
-    }
+      const captured = selectedText; // closure
 
-    // Incolla su campi editabili
-    if (isEditable) {
-      items.push({ icon:'fas fa-paste', label:'Incolla', action: async () => {
+      items.push({ icon:'fas fa-copy', label: L.copy, action: async () => {
+        // Metodo 1: focus sul webview + execCommand (funziona se il webview ha il focus)
         try {
-          const txt = await navigator.clipboard.readText();
-          await wv.executeJavaScript(`
-            (function(){
-              const el = document.activeElement;
-              if (!el) return;
-              if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-                const s = el.selectionStart, en = el.selectionEnd;
-                el.value = el.value.slice(0,s) + ${JSON.stringify(txt)} + el.value.slice(en);
-                el.selectionStart = el.selectionEnd = s + ${JSON.stringify(txt)}.length;
-                el.dispatchEvent(new Event('input', {bubbles:true}));
-              } else if (el.isContentEditable) {
-                document.execCommand('insertText', false, ${JSON.stringify(txt)});
-              }
-            })()
-          `);
+          wv.focus();
+          await wv.executeJavaScript('document.execCommand("copy")');
         } catch(_) {}
+        // Metodo 2: scrivi direttamente negli appunti come fallback sicuro
+        try { await navigator.clipboard.writeText(captured); } catch(_) {}
       }});
+
+      if (isEditable) {
+        items.push({ icon:'fas fa-scissors', label: L.cut, action: async () => {
+          try {
+            wv.focus();
+            await wv.executeJavaScript('document.execCommand("cut")');
+          } catch(_) {}
+          try { await navigator.clipboard.writeText(captured); } catch(_) {}
+        }});
+      }
+
+      items.push({ icon:'fas fa-magnifying-glass',
+        label: `${L.search_for} "${preview}" ${L.on} ${seName}`,
+        action:() => createTab(SE_URLS[searchEngine](captured))
+      });
       items.push(null);
     }
 
-    if (!params.linkURL && !selectedText && !isEditable) {
-      items.push({ icon:'fas fa-rotate-right', label:'Ricarica pagina', action:() => reloadOrStop() });
+    // ── Incolla (solo su campi editabili) ───────────
+    if (isEditable) {
+      items.push({ icon:'fas fa-paste', label: L.paste + (clipText ? ` "${clipText.slice(0,15)}${clipText.length>15?'…':''}"` : ''),
+        action: async () => {
+          try {
+            const txt = await navigator.clipboard.readText();
+            wv.focus();
+            await wv.executeJavaScript(`
+              (function(){
+                const el = document.activeElement;
+                if (!el) return;
+                if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                  const s = el.selectionStart || 0, en = el.selectionEnd || 0;
+                  const v = el.value || '';
+                  el.value = v.slice(0,s) + ${JSON.stringify(txt)} + v.slice(en);
+                  el.selectionStart = el.selectionEnd = s + ${JSON.stringify(txt)}.length;
+                  el.dispatchEvent(new Event('input', {bubbles:true}));
+                  el.dispatchEvent(new Event('change', {bubbles:true}));
+                } else if (el.isContentEditable) {
+                  document.execCommand('insertText', false, ${JSON.stringify(txt)});
+                }
+              })()
+            `);
+          } catch(_) {}
+        }
+      });
+      items.push(null);
     }
-    items.push({ icon:'fas fa-floppy-disk', label:'Salva pagina', action:() => savePage() });
-    items.push({ icon:'fas fa-star',        label:'Aggiungi ai preferiti', action:() => toggleBookmark() });
-    items.push({ icon:'fas fa-print',       label:'Stampa…', action:() => activeWV()?.print() });
+
+    // ── Azioni generali ─────────────────────────────
+    if (!params.linkURL && !selectedText && !isEditable) {
+      items.push({ icon:'fas fa-rotate-right', label: L.reload_ctx,        action:() => reloadOrStop() });
+    }
+
+    // Traduzione pagina
+    const curUrl = tabs[id]?.url || '';
+    if (curUrl && curUrl.startsWith('http')) {
+      items.push({ icon:'fas fa-language',  label: L.translate_page || 'Traduci pagina', action:() => translatePage(id, wv) });
+    }
+
+    items.push({ icon:'fas fa-floppy-disk', label: L.save_page_ctx,       action:() => savePage() });
+    items.push({ icon:'fas fa-star',        label: L.add_bookmark_ctx,     action:() => toggleBookmark() });
+    items.push({ icon:'fas fa-print',       label: L.print_ctx,            action:() => activeWV()?.print() });
     items.push(null);
-    items.push({ icon:'fas fa-code',        label:'Ispeziona elemento', action:() => wv.openDevTools() });
+    items.push({ icon:'fas fa-code',        label: L.inspect,              action:() => wv.openDevTools() });
 
     showCtxMenuItems(items, menuX, menuY);
   });
@@ -1140,11 +1534,11 @@ async function savePage() {
   const url     = tabs[activeTabId]?.url || '';
   const title   = tabs[activeTabId]?.title || url;
   const favicon = tabs[activeTabId]?.favicon || '';
-  if (!url || url === 'about:blank') { showToast('Nessuna pagina da salvare'); return; }
+  if (!url || url === 'about:blank') { showToast(t('no_page', currentLang)); return; }
 
   try {
     await ipcRenderer.invoke('save-page', { url, title, favicon });
-    showToast('Pagina salvata');
+    showToast(t('page_saved', currentLang));
     // Se il pannello Salvate è aperto, aggiorna
     if (!document.getElementById('tab-saved').classList.contains('hidden')) loadSavedPages();
   } catch(e) { showToast('Errore nel salvataggio'); }
@@ -1276,23 +1670,23 @@ async function savePwEntry() {
   const site     = document.getElementById('pw-site').value.trim();
   const username = document.getElementById('pw-user').value.trim();
   const password = document.getElementById('pw-pass').value;
-  if (!site || !username || !password) { showToast('Compila tutti i campi'); return; }
+  if (!site || !username || !password) { showToast(t('fill_all', currentLang)); return; }
   try {
     await ipcRenderer.invoke('save-password', { site, username, password });
     allPasswords.unshift({ site, username, password });
     renderPasswords(allPasswords);
     closePwModal();
-    showToast('Credenziali salvate');
+    showToast(t('credentials_saved', currentLang));
   } catch(e) { showToast('Errore nel salvataggio'); }
 }
 
 async function deletePwEntry(index) {
-  if (!confirm('Eliminare queste credenziali?')) return;
+  if (!confirm(t('delete_credentials', currentLang))) return;
   try {
     await ipcRenderer.invoke('delete-password', index);
     allPasswords.splice(index, 1);
     renderPasswords(allPasswords);
-    showToast('Credenziali eliminate');
+    showToast(t('credentials_deleted', currentLang));
   } catch(e) {}
 }
 
@@ -1305,6 +1699,112 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); savePwEntry();
   }
 });
+
+// ── Extensions sub-tabs ────────────────────────────
+function showExtSubtab(name) {
+  document.querySelectorAll('.ext-stab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.ext-subpanel').forEach(p => p.classList.add('hidden'));
+  document.getElementById(`estab-${name}`)?.classList.add('active');
+  document.getElementById(`extpanel-${name}`)?.classList.remove('hidden');
+  if (name === 'installed') refreshExtList();
+  if (name === 'community') {
+    const saved = localStorage.getItem('snao_community_url');
+    if (saved) document.getElementById('community-store-url').value = saved;
+  }
+}
+
+function saveCommunityUrl() {
+  const url = document.getElementById('community-store-url').value;
+  try { localStorage.setItem('snao_community_url', url); } catch(e) {}
+}
+
+// ── Community Store ────────────────────────────────
+// Scarica e mostra plugin dal JSON della community.
+// Formato atteso: Array di oggetti plugin (vedi sotto).
+async function loadCommunityStore() {
+  const list = document.getElementById('community-store-list');
+  const rawUrl = document.getElementById('community-store-url').value.trim();
+  if (!rawUrl) { showToast('Inserisci un URL valido'); return; }
+
+  list.innerHTML = `<div class="empty-state" style="padding:20px 0">
+    <i class="fas fa-spinner fa-spin"></i><p>Caricamento…</p></div>`;
+
+  try {
+    // Usa il fetch nativo di Electron (no CORS)
+    const res  = await fetch(rawUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderCommunityPlugins(data);
+  } catch (err) {
+    list.innerHTML = `<div class="empty-state" style="padding:16px 0">
+      <i class="fas fa-triangle-exclamation" style="color:var(--yellow)"></i>
+      <p>Errore: ${err.message}<br><small>Verifica l'URL o prova più tardi</small></p>
+    </div>
+    <div style="margin-top:8px">
+      <div class="ext-note"><i class="fas fa-circle-info"></i>
+        Lo store deve esporre un file <code>JSON</code> pubblico con questo formato:<br><br>
+        <code>[{"name":"Plugin","description":"...","version":"1.0","author":"user","url":"https://...","icon":"🧩"}]</code>
+      </div>
+    </div>`;
+  }
+}
+
+function renderCommunityPlugins(plugins) {
+  const list = document.getElementById('community-store-list');
+  if (!Array.isArray(plugins) || !plugins.length) {
+    list.innerHTML = '<div class="empty-state"><i class="fas fa-store"></i><p>Nessun plugin disponibile</p></div>';
+    return;
+  }
+
+  list.innerHTML = plugins.map((p, i) => {
+    const icon    = p.icon || '🧩';
+    const name    = (p.name    || 'Plugin').slice(0, 40);
+    const desc    = (p.description || '').slice(0, 80);
+    const version = p.version || '1.0';
+    const author  = p.author  || 'community';
+    const hasUrl  = p.url || p.download_url || p.crx_url;
+    const isCrx   = hasUrl && (hasUrl.endsWith('.crx') || hasUrl.includes('/crx/'));
+    const isUnpacked = hasUrl && (hasUrl.endsWith('.zip') || hasUrl.includes('github.com'));
+
+    return `<div class="community-plugin-card">
+      <div class="cpcard-icon">${icon}</div>
+      <div class="cpcard-info">
+        <div class="cpcard-name">${name}</div>
+        <div class="cpcard-desc">${desc}</div>
+        <div class="cpcard-meta">v${version} · ${author}</div>
+      </div>
+      <button class="cpcard-install-btn" onclick="installCommunityPlugin(${i})" ${hasUrl ? '' : 'disabled'}>
+        <i class="fas fa-download"></i>${hasUrl ? 'Installa' : 'N/A'}
+      </button>
+    </div>`;
+  }).join('');
+
+  // Salva i dati per l'installazione
+  window._communityPlugins = plugins;
+}
+
+async function installCommunityPlugin(index) {
+  const plugins = window._communityPlugins || [];
+  const p = plugins[index];
+  if (!p) return;
+
+  const url = p.url || p.download_url || p.crx_url || '';
+  if (!url) { showToast('URL di download mancante'); return; }
+
+  showToast('⏳ Download plugin in corso…', 8000);
+
+  // Se è un .crx, usa l'handler webstore-install
+  if (url.endsWith('.crx') || url.includes('/crx/')) {
+    const result = await ipcRenderer.invoke('webstore-install', { url, extId: null });
+    if (result.ok) showToast(`✓ ${p.name} installato`);
+    else showToast(`Errore: ${result.error}`);
+    return;
+  }
+
+  // Se è un link a cartella/zip su GitHub, apri nella nuova tab per download manuale
+  showToast(`Apro la pagina di download per ${p.name}`);
+  createTab(url);
+}
 
 // ── Extensions (local unpacked) ───────────────────
 async function loadLocalExtension() {
@@ -1355,17 +1855,30 @@ async function refreshExtList() {
   } catch(e) {}
 }
 
-// Notifiche auto-install da Web Store (download .crx intercettato dal main)
-ipcRenderer.on('extension-installed', (e, { name }) => {
-  showToast(`✓ Estensione installata: ${name}`, 3500);
-  refreshExtList();
+// Apertura tab da popup bloccato (fix Spotify e simili)
+ipcRenderer.on('open-in-tab', (e, url) => {
+  if (url && url.startsWith('http')) createTab(url);
 });
+
+// Notifiche auto-install da Web Store
 ipcRenderer.on('extension-install-error', (e, msg) => {
   showToast('Errore installazione: ' + msg, 4000);
+});
+ipcRenderer.on('ext-installing', (e, active) => {
+  if (active) showToast('⏳ ' + (getLang(currentLang).download_ext || 'Download estensione in corso…'), 15000);
+});
+
+// AdBlock engine pronto
+ipcRenderer.on('adblock-ready', (e, counts) => {
+  const total = (counts.domains + counts.keywords + counts.slow).toLocaleString();
+  const badge = document.getElementById('adblock-badge');
+  if (badge) badge.title = `AdBlock — ${total} regole (EasyList + EasyPrivacy + uBlock)`;
+  showToast(`🛡 AdBlock: ${total} regole`, 3000);
 });
 
 // ── Toast ──────────────────────────────────────────
 function showToast(msg, duration = 2200) {
+  // Cancella toast precedente con stesso testo (evita spam)
   const wrap  = document.getElementById('toast-wrap');
   const toast = document.createElement('div');
   toast.className = 'toast';
