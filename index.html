@@ -144,6 +144,10 @@
 
   <!-- Webview container -->
   <div id="wv-container"></div>
+  <!-- PiP button overlay -->
+  <button id="pip-btn" class="hidden" onclick="activatePiP()" title="Picture in Picture">
+    <i class="fas fa-clone"></i>
+  </button>
   <div id="load-bar"><div id="load-progress"></div></div>
 </div>
 
@@ -276,6 +280,16 @@
 
     <div class="account-info-row">
       <div class="info-chip"><i class="fas fa-shield-halved"></i><span id="adblock-chip-text">AdBlock attivo</span></div>
+      <button class="info-chip" id="whitelist-btn" onclick="toggleWhitelistCurrentSite()"
+        style="cursor:pointer;background:rgba(255,159,10,0.1);border-color:rgba(255,159,10,0.2);color:var(--orange);border:1px solid rgba(255,159,10,0.2);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500;display:flex;align-items:center;gap:5px">
+        <i class="fas fa-circle-minus"></i><span id="whitelist-btn-text">Disattiva su questo sito</span>
+      </button>
+    </div>
+
+    <!-- Whitelist gestita -->
+    <div class="settings-section" id="whitelist-section" style="display:none">
+      <h4>Siti con AdBlock disattivato</h4>
+      <div id="whitelist-list" style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto"></div>
     </div>
 
     <button class="danger-btn" onclick="confirmClearAll()"><i class="fas fa-trash"></i> Cancella tutti i dati</button>
@@ -522,8 +536,15 @@ async function loadAllData() {
     applyLanguage(currentLang);
 
     allHistory   = data.history   || [];
-    allBookmarks = data.bookmarks || [];
+    // Bookmarks: rileggi sempre dal disco per avere dati aggiornati
+    try {
+      const freshBM = await ipcRenderer.invoke('get-bookmarks');
+      allBookmarks = freshBM || [];
+    } catch(e) {
+      allBookmarks = data.bookmarks || [];
+    }
     renderBookmarksBar();
+    renderWhitelistUI();
   } catch(e) {}
 }
 
@@ -621,6 +642,8 @@ function switchTab(id) {
   updateNavBtns();
   updateBookmarkBtn(url);
   applyZoomToWV(wv);
+  updateWhitelistBtn();
+  updatePiPBtn(url);
 }
 
 function bindWV(id, wv) {
@@ -663,6 +686,80 @@ function bindWV(id, wv) {
       ipcRenderer.invoke('add-history', { url, title: tabs[id].title || url, favicon: tabs[id].favicon || '' }).catch(()=>{});
     }
     applyZoomToWV(wv);
+    updatePiPBtn(url);
+
+    // ── YouTube: solo CSS cosmetic + JS skip (zero blocchi di rete) ──
+    if (adblockOn && url && (url.includes('youtube.com') || url.includes('youtu.be'))) {
+      setTimeout(async () => {
+        if (!tabs[id]) return;
+        try {
+          await wv.insertCSS([
+            '.ytp-ad-overlay-container,.ytp-ad-text-overlay,.ytp-ad-timed-pie-countdown-container',
+            '.ytp-ad-skip-button-container,.ytp-ad-image-overlay,.ytp-ad-module',
+            '.ytp-ad-player-overlay,.ytp-ad-player-overlay-layout,.ytp-ad-simple-ad-badge',
+            '.ytp-ad-badge,.ytp-suggested-action,.ytp-ad-preview-container',
+            '.ytp-ad-progress-list,.ytp-ad-action-interstitial',
+            '#masthead-ad,#player-ads,ytd-display-ad-renderer',
+            'ytd-promoted-sparkles-web-renderer,ytd-promoted-video-renderer',
+            'ytd-search-pyv-renderer,ytd-compact-promoted-video-renderer',
+            'ytd-ad-slot-renderer,ytd-in-feed-ad-layout-renderer',
+            'ytd-banner-promo-renderer,ytd-statement-banner-renderer',
+            'ytd-mealbar-promo-renderer,ytd-item-section-renderer:has(ytd-ad-slot-renderer)',
+            'tp-yt-paper-dialog:has(ytd-mealbar-promo-renderer)',
+            '.ad-showing .ytp-pause-overlay,.ytp-ad-persistent-progress-bar-container',
+            '{display:none!important;visibility:hidden!important;pointer-events:none!important}'
+          ].join(','));
+        } catch (e) {}
+        try {
+          await wv.executeJavaScript(`(function(){
+            if(window._snaoYT) return; window._snaoYT=true;
+            var skipClicks=0;
+
+            function isAdPlaying(){
+              // Controlla SOLO indicatori certi di un ad in riproduzione
+              return !!(
+                document.querySelector('.ad-showing') ||
+                document.querySelector('.ytp-ad-player-overlay-layout') ||
+                document.querySelector('.ytp-ad-timed-pie-countdown-container')
+              );
+            }
+
+            function run(){
+              // 1) Premi skip se disponibile
+              var btn=document.querySelector(
+                '.ytp-skip-ad-button:not([style*="display: none"]),' +
+                '.ytp-ad-skip-button:not([style*="display: none"]),' +
+                '.ytp-ad-skip-button-modern button'
+              );
+              if(btn){ btn.click(); skipClicks++; return; }
+
+              // 2) Se NON c'è skip disponibile ma c'è un ad, aspetta
+              //    Usa SOLO currentTime se siamo sicuri sia un ad breve (<= 30s)
+              if(isAdPlaying()){
+                var v=document.querySelector('video');
+                if(v && v.duration && isFinite(v.duration) && v.duration<=35){
+                  // Ad breve senza skip: portalo alla fine
+                  try{ v.currentTime=v.duration-0.1; }catch(e){}
+                }
+                // Ad lungo (>35s) senza skip: non toccare il currentTime
+                // perché potrebbe essere il video principale
+              }
+            }
+
+            setInterval(run, 400);
+
+            // Blocca solo beacon analytics, NON i video
+            var _f=window.fetch;
+            window.fetch=function(i,o){
+              var u=typeof i==='string'?i:(i&&i.url)||'';
+              if(/\\/pagead\\/|\\/api\\/stats\\/ads|\\/ptracking/.test(u))
+                return Promise.resolve(new Response('',{status:204}));
+              return _f.apply(this,arguments);
+            };
+          })()`);
+        } catch (e) {}
+      }, 900);
+    }
   });
 
   wv.addEventListener('new-window', e => {
@@ -781,6 +878,118 @@ function applyZoomToWV(wv) {
   try { wv.setZoomFactor(currentZoom); } catch(e) {}
 }
 
+// ── Picture in Picture ─────────────────────────────
+async function activatePiP() {
+  const wv = activeWV();
+  if (!wv) return;
+  try {
+    const result = await wv.executeJavaScript(`
+      (function(){
+        const v = document.querySelector('video');
+        if (!v) return 'no_video';
+        if (document.pictureInPictureElement) {
+          document.exitPictureInPicture();
+          return 'exited';
+        }
+        v.requestPictureInPicture()
+          .then(() => console.log('[PiP] attivato'))
+          .catch(e => console.warn('[PiP] errore:', e));
+        return 'requested';
+      })()
+    `);
+    if (result === 'no_video') showToast('Nessun video rilevato in questa pagina');
+    else if (result === 'exited') showToast('PiP chiuso');
+  } catch(e) {
+    showToast('PiP non disponibile su questa pagina');
+  }
+}
+
+function updatePiPBtn(url) {
+  const btn = document.getElementById('pip-btn');
+  if (!btn) return;
+  // Mostra PiP solo su siti con video (YouTube, Twitch, Netflix, ecc.)
+  const videoSites = ['youtube.com','youtu.be','twitch.tv','netflix.com',
+    'vimeo.com','dailymotion.com','bilibili.com','tiktok.com','instagram.com'];
+  const show = url && videoSites.some(s => url.includes(s));
+  btn.classList.toggle('hidden', !show);
+}
+
+// ── AdBlock Whitelist per-sito ─────────────────────
+async function toggleWhitelistCurrentSite() {
+  const url = tabs[activeTabId]?.url || '';
+  if (!url || url === 'about:blank') { showToast('Nessuna pagina aperta'); return; }
+  let domain = '';
+  try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch(e) { return; }
+
+  const isWL = await ipcRenderer.invoke('adblock-is-whitelisted', domain);
+  if (isWL) {
+    await ipcRenderer.invoke('adblock-whitelist-remove', domain);
+    showToast(`🛡 AdBlock riattivato su ${domain}`);
+  } else {
+    await ipcRenderer.invoke('adblock-whitelist-add', domain);
+    showToast(`⚪ AdBlock disattivato su ${domain}`);
+  }
+  updateWhitelistBtn();
+  renderWhitelistUI();
+}
+
+async function updateWhitelistBtn() {
+  const url = tabs[activeTabId]?.url || '';
+  const btn     = document.getElementById('whitelist-btn');
+  const btnText = document.getElementById('whitelist-btn-text');
+  if (!btn) return;
+
+  if (!url || url === 'about:blank') {
+    btn.style.display = 'none'; return;
+  }
+  btn.style.display = 'flex';
+
+  let domain = '';
+  try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch(e) { return; }
+
+  const isWL = await ipcRenderer.invoke('adblock-is-whitelisted', domain);
+  if (isWL) {
+    btnText.textContent = `Riattiva su ${domain}`;
+    btn.style.background = 'rgba(48,209,88,0.1)';
+    btn.style.borderColor = 'rgba(48,209,88,0.2)';
+    btn.style.color = 'var(--green)';
+    btn.querySelector('i').className = 'fas fa-circle-plus';
+  } else {
+    btnText.textContent = `Disattiva su ${domain}`;
+    btn.style.background = 'rgba(255,159,10,0.1)';
+    btn.style.borderColor = 'rgba(255,159,10,0.2)';
+    btn.style.color = 'var(--orange)';
+    btn.querySelector('i').className = 'fas fa-circle-minus';
+  }
+}
+
+async function renderWhitelistUI() {
+  const list = document.getElementById('whitelist-list');
+  const section = document.getElementById('whitelist-section');
+  if (!list) return;
+
+  const domains = await ipcRenderer.invoke('adblock-whitelist-get');
+  if (!domains.length) { section.style.display = 'none'; return; }
+
+  section.style.display = 'block';
+  list.innerHTML = domains.map(d => `
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 10px">
+      <i class="fas fa-globe" style="font-size:10px;color:var(--txt3)"></i>
+      <span style="flex-grow:1;font-size:12px;color:var(--txt2)">${d}</span>
+      <button onclick="removeFromWhitelist('${d}')" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:10px;padding:2px 4px;border-radius:3px" title="Rimuovi">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+async function removeFromWhitelist(domain) {
+  await ipcRenderer.invoke('adblock-whitelist-remove', domain);
+  showToast(`🛡 AdBlock riattivato su ${domain}`);
+  renderWhitelistUI();
+  updateWhitelistBtn();
+}
+
 // ── AdBlock ───────────────────────────────────────
 function toggleAdblock() {
   adblockOn = !adblockOn;
@@ -827,6 +1036,13 @@ function applyBmBarUI() {
 async function toggleBookmark() {
   const url = tabs[activeTabId]?.url || '';
   if (!url || url === 'about:blank') return;
+
+  // Rileggi sempre dal disco per sicurezza
+  try {
+    const fresh = await ipcRenderer.invoke('get-bookmarks');
+    allBookmarks = fresh || [];
+  } catch(e) {}
+
   const isBookmarked = allBookmarks.some(b => b.url === url);
   if (isBookmarked) {
     await ipcRenderer.invoke('remove-bookmark', url);
@@ -835,10 +1051,12 @@ async function toggleBookmark() {
   } else {
     const title   = tabs[activeTabId]?.title || url;
     const favicon = tabs[activeTabId]?.favicon || '';
-    const bm = { url, title, favicon };
-    await ipcRenderer.invoke('add-bookmark', bm);
-    allBookmarks.unshift({ ...bm, id: Date.now() });
-    showToast(t('bookmark_added', currentLang));
+    const bm = { url, title: title || url, favicon };
+    const result = await ipcRenderer.invoke('add-bookmark', bm);
+    if (result && result.ok) {
+      allBookmarks.unshift({ ...bm, id: Date.now() });
+      showToast(t('bookmark_added', currentLang));
+    }
   }
   updateBookmarkBtn(url);
   renderBookmarksBar();
@@ -855,7 +1073,8 @@ function updateBookmarkBtn(url) {
 function renderBookmarksBar() {
   const bar = document.getElementById('bookmarks-bar');
   bar.innerHTML = allBookmarks.map((bm, i) => {
-    const label = bm.title.length > 25 ? bm.title.slice(0, 25) + '…' : bm.title;
+    const title = bm.title || bm.url || '';
+    const label = title.length > 25 ? title.slice(0, 25) + '…' : title;
     const fav   = bm.favicon ? `<img src="${bm.favicon}" onerror="this.style.display='none'">` : '<i class="fas fa-globe" style="font-size:10px;color:var(--txt3)"></i>';
     return `<div class="bm-item" onclick="navigate('${bm.url.replace(/'/g,"\\'")}')">
       ${fav}<span>${label}</span>

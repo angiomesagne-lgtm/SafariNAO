@@ -349,6 +349,12 @@ async function createWindow() {
     writeData(data); return { ok: true };
   });
 
+  // ── AdBlock Whitelist per-sito ────────────────────────────
+  ipcMain.handle('adblock-whitelist-add',    (_e, domain) => { adblock.whitelistAdd(domain);    return { ok: true }; });
+  ipcMain.handle('adblock-whitelist-remove', (_e, domain) => { adblock.whitelistRemove(domain); return { ok: true }; });
+  ipcMain.handle('adblock-whitelist-get',    ()           => adblock.getWhitelist());
+  ipcMain.handle('adblock-is-whitelisted',   (_e, domain) => adblock.isWhitelisted(domain));
+
   // ── Extensions ────────────────────────────────────────────
   ipcMain.handle('get-extensions', () => loadedExtensions);
 

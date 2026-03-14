@@ -1399,3 +1399,35 @@ webview.visible { display: flex; }
   color: var(--txt3);
   cursor: default;
 }
+
+/* ── Picture in Picture button ──────────────────────────────── */
+#pip-btn {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 50;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(8px);
+  transition: background 0.15s, opacity 0.2s, transform 0.15s;
+  opacity: 0;
+  pointer-events: none;
+}
+#pip-btn::after {
+  content: 'PiP';
+  font-size: 11px;
+  font-family: var(--font);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+#pip-btn:not(.hidden) { opacity: 1; pointer-events: all; }
+#pip-btn:hover { background: rgba(10,132,255,0.8); transform: scale(1.05); }
+#pip-btn:active { transform: scale(0.97); }
