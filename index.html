@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════════ TITLEBAR ═══════════════ -->
+<header id="titlebar">
+  <!-- Traffic lights -->
+  <div class="tl-group">
+    <button class="tl tl-close" onclick="ipcRenderer.send('window-ctrl','close')" title="Chiudi"></button>
+    <button class="tl tl-min"   onclick="ipcRenderer.send('window-ctrl','min')"   title="Minimizza"></button>
+    <button class="tl tl-max"   onclick="ipcRenderer.send('window-ctrl','max')"   title="Ingrandisci"></button>
+  </div>
+
+  <!-- Tabs -->
+  <div id="tabs-wrap">
+    <div id="tab-list"></div>
+    <button class="tab-add-btn" onclick="createTab()" title="Nuova scheda (Ctrl+T)">
+      <i class="fas fa-plus"></i>
+    </button>
+  </div>
+
+  <!-- Drag handle: area flessibile tra tabs e azioni destra — trascina la finestra -->
+  <div id="titlebar-drag-handle" title="Trascina per spostare"></div>
+
+  <!-- Right controls -->
+  <div class="title-actions">
+    <div id="adblock-badge" title="AdBlock">
+      <i class="fas fa-shield-halved"></i><span>ADBlock</span>
+    </div>
+    <button class="icon-btn" id="account-btn" onclick="togglePanel('account')" title="Account & Impostazioni">
+      <i class="fas fa-circle-user"></i>
+    </button>
+  </div>
+</header>
+
+<!-- ═══════════════ NAV BAR ═══════════════ -->
+<nav id="navbar">
+  <div class="nav-btns">
+    <button class="nav-btn" id="btn-back"    onclick="activeWV()?.goBack()"    title="Indietro (Alt+←)"><i class="fas fa-chevron-left"></i></button>
+    <button class="nav-btn" id="btn-fwd"     onclick="activeWV()?.goForward()" title="Avanti (Alt+→)"><i class="fas fa-chevron-right"></i></button>
+    <button class="nav-btn" id="btn-reload"  onclick="reloadOrStop()"          title="Ricarica (Ctrl+R)"><i class="fas fa-rotate-right" id="reload-icon"></i></button>
+    <button class="nav-btn" id="btn-home"    onclick="goHome()"                title="Home"><i class="fas fa-house"></i></button>
+  </div>
+
+  <div id="omnibox-wrap">
+    <div id="omnibox">
+      <i class="fas fa-globe" id="ssl-icon"></i>
+      <input type="text" id="omnibar" spellcheck="false"
+             placeholder="Cerca o inserisci un indirizzo…"
+             onfocus="this.select()"
+             onkeydown="omniboxKey(event)"
+             oninput="onOmniInput(this)">
+      <button id="btn-bookmark" onclick="toggleBookmark()" title="Aggiungi/rimuovi preferito">
+        <i class="far fa-star"></i>
+      </button>
+      <button class="omni-clear" id="omni-clear" onclick="clearOmnibar()" tabindex="-1"><i class="fas fa-xmark"></i></button>
+    </div>
+  </div>
+
+  <div class="nav-btns">
+    <!-- Zoom -->
+    <div class="zoom-wrap" title="Zoom pagina">
+      <button class="zoom-btn" onclick="changeZoom(-0.1)" title="Riduci"><i class="fas fa-minus"></i></button>
+      <span id="zoom-level">100%</span>
+      <button class="zoom-btn" onclick="changeZoom(0.1)"  title="Ingrandisci"><i class="fas fa-plus"></i></button>
+    </div>
+
+    <button class="nav-btn" onclick="toggleFind()"           title="Cerca nella pagina (Ctrl+F)"><i class="fas fa-magnifying-glass"></i></button>
+    <button class="nav-btn" onclick="togglePanel('history')" title="Cronologia (Ctrl+H)"><i class="fas fa-clock-rotate-left"></i></button>
+    <button class="nav-btn" onclick="togglePanel('bookmarks')" title="Preferiti"><i class="fas fa-star"></i></button>
+    <button class="nav-btn" onclick="toggleMenu()" id="menu-btn" title="Menu"><i class="fas fa-ellipsis-vertical"></i></button>
+  </div>
+</nav>
+
+<!-- ═══════════════ BOOKMARKS BAR ═══════════════ -->
+<div id="bookmarks-bar"></div>
+
+<!-- ═══════════════ STAGE ═══════════════ -->
+<div id="stage">
+  <!-- Home screen -->
+  <div id="home" class="home-screen">
+    <div class="home-inner">
+      <div class="home-logo">
+        <span class="logo-s">S</span><span class="logo-rest">afari</span><span class="logo-nao">NAO</span>
+      </div>
+      <p class="home-sub">Il tuo browser. Veloce. Privato. Protetto.</p>
+
+      <div id="home-omnibox-wrap">
+        <div class="home-search-box">
+          <i class="fas fa-magnifying-glass"></i>
+          <input type="text" id="home-search" placeholder="Cerca o vai a un sito…"
+                 onkeydown="homeKey(event)"
+                 onfocus="this.parentElement.classList.add('focused')"
+                 onblur="this.parentElement.classList.remove('focused')">
+        </div>
+      </div>
+
+      <div class="quick-tiles">
+        <div class="tile" onclick="navigate('https://google.com')">
+          <div class="tile-icon"><i class="fab fa-google"></i></div>
+          <span>Google</span>
+        </div>
+        <div class="tile" onclick="navigate('https://youtube.com')">
+          <div class="tile-icon yt"><i class="fab fa-youtube"></i></div>
+          <span>YouTube</span>
+        </div>
+        <div class="tile" onclick="navigate('https://prysmai.it')">
+          <div class="tile-icon ai"><i class="fas fa-brain"></i></div>
+          <span>Prysma AI</span>
+        </div>
+        <div class="tile" onclick="navigate('https://web.whatsapp.com')">
+          <div class="tile-icon wa"><i class="fab fa-whatsapp"></i></div>
+          <span>WhatsApp</span>
+        </div>
+        <div class="tile" onclick="navigate('https://github.com')">
+          <div class="tile-icon gh"><i class="fab fa-github"></i></div>
+          <span>GitHub</span>
+        </div>
+        <div class="tile" onclick="navigate('https://reddit.com')">
+          <div class="tile-icon rd"><i class="fab fa-reddit"></i></div>
+          <span>Reddit</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Webview container -->
+  <div id="wv-container"></div>
+  <div id="load-bar"><div id="load-progress"></div></div>
+</div>
+
+<!-- ═══════════════ FIND IN PAGE ═══════════════ -->
+<div id="find-bar" class="hidden">
+  <i class="fas fa-magnifying-glass" style="color:var(--txt3);font-size:11px"></i>
+  <input type="text" id="find-input" placeholder="Cerca…" oninput="doFind()" onkeydown="findKey(event)">
+  <span id="find-count"></span>
+  <button class="nav-btn" onclick="findStep(-1)" title="Precedente"><i class="fas fa-chevron-up"></i></button>
+  <button class="nav-btn" onclick="findStep(1)"  title="Successivo"><i class="fas fa-chevron-down"></i></button>
+  <button class="nav-btn" onclick="closeFind()"  title="Chiudi"><i class="fas fa-xmark"></i></button>
+</div>
+
+<!-- ═══════════════ DROPDOWN MENU ═══════════════ -->
+<div id="dropdown-menu" class="panel-popup hidden">
+  <div class="pm-item" onclick="createTab(); closeMenus()">
+    <i class="fas fa-plus"></i><span>Nuova scheda</span><kbd>Ctrl+T</kbd>
+  </div>
+  <div class="pm-item" onclick="duplicateTab(); closeMenus()">
+    <i class="fas fa-clone"></i><span>Duplica scheda</span>
+  </div>
+  <div class="pm-item" onclick="goHome(); closeMenus()">
+    <i class="fas fa-house"></i><span>Pagina iniziale</span>
+  </div>
+  <div class="pm-sep"></div>
+  <div class="pm-item" onclick="toggleFind(); closeMenus()">
+    <i class="fas fa-magnifying-glass"></i><span>Cerca nella pagina</span><kbd>Ctrl+F</kbd>
+  </div>
+  <div class="pm-item" onclick="savePage(); closeMenus()">
+    <i class="fas fa-floppy-disk"></i><span>Salva pagina</span><kbd>Ctrl+S</kbd>
+  </div>
+  <div class="pm-item" onclick="activeWV()?.print(); closeMenus()">
+    <i class="fas fa-print"></i><span>Stampa</span><kbd>Ctrl+P</kbd>
+  </div>
+  <div class="pm-sep"></div>
+  <div class="pm-item" id="menu-adblock" onclick="toggleAdblock()">
+    <i class="fas fa-shield-halved"></i><span>AdBlock</span>
+    <span class="pm-toggle on" id="adblock-toggle"></span>
+  </div>
+  <div class="pm-item" id="menu-bm-bar" onclick="toggleBookmarksBar()">
+    <i class="fas fa-bars"></i><span>Barra preferiti</span>
+    <span class="pm-toggle on" id="bm-bar-toggle"></span>
+  </div>
+  <div class="pm-sep"></div>
+  <div class="pm-item" onclick="navigate('https://prysmai.it'); closeMenus()">
+    <i class="fas fa-brain"></i><span>Prysma AI</span>
+  </div>
+  <div class="pm-item" onclick="activeWV()?.openDevTools(); closeMenus()">
+    <i class="fas fa-code"></i><span>Strumenti sviluppatore</span><kbd>F12</kbd>
+  </div>
+  <div class="pm-sep"></div>
+  <div class="pm-item danger" onclick="ipcRenderer.send('window-ctrl','close')">
+    <i class="fas fa-power-off"></i><span>Esci</span>
+  </div>
+</div>
+
+<!-- ═══════════════ RIGHT PANEL ═══════════════ -->
+<aside id="side-panel" class="hidden">
+  <div class="panel-header">
+    <div class="panel-tabs">
+      <button class="ptab active" id="ptab-account"   onclick="showPanelTab('account')"><i class="fas fa-user"></i> Account</button>
+      <button class="ptab"        id="ptab-history"   onclick="showPanelTab('history')"><i class="fas fa-clock"></i> Storia</button>
+      <button class="ptab"        id="ptab-bookmarks" onclick="showPanelTab('bookmarks')"><i class="fas fa-star"></i> Preferiti</button>
+      <button class="ptab"        id="ptab-saved"     onclick="showPanelTab('saved')"><i class="fas fa-bookmark"></i> Salvate</button>
+      <button class="ptab"        id="ptab-passwords" onclick="showPanelTab('passwords')"><i class="fas fa-key"></i> Password</button>
+      <button class="ptab"        id="ptab-extensions" onclick="showPanelTab('extensions')"><i class="fas fa-puzzle-piece"></i> Estensioni</button>
+    </div>
+    <button class="icon-btn panel-close-btn" onclick="closePanel()"><i class="fas fa-xmark"></i></button>
+  </div>
+
+  <!-- Account tab -->
+  <div id="tab-account" class="panel-body">
+    <div class="avatar-wrap">
+      <div class="avatar" id="avatar-display">
+        <i class="fas fa-user" id="avatar-icon"></i>
+        <img id="avatar-img" src="" style="display:none">
+      </div>
+      <label class="avatar-change-btn" title="Cambia foto">
+        <i class="fas fa-camera"></i>
+        <input type="file" accept="image/*" onchange="changeAvatar(event)" style="display:none">
+      </label>
+    </div>
+
+    <div class="account-form">
+      <div class="field-group">
+        <label>Nome</label>
+        <input type="text" id="acc-name" placeholder="Il tuo nome" oninput="scheduleAccountSave()">
+      </div>
+      <div class="field-group">
+        <label>Email</label>
+        <input type="email" id="acc-email" placeholder="email@esempio.com" oninput="scheduleAccountSave()">
+      </div>
+    </div>
+
+    <!-- Settings inline -->
+    <div class="settings-section">
+      <h4>Impostazioni</h4>
+      <div class="setting-row">
+        <div class="sr-label">
+          AdBlock
+          <span class="sr-sub">Blocca pubblicità automaticamente</span>
+        </div>
+        <button class="toggle-switch on" id="toggle-adblock" onclick="toggleAdblock()"></button>
+      </div>
+      <div class="setting-row">
+        <div class="sr-label">
+          Barra preferiti
+          <span class="sr-sub">Mostra sotto la barra degli indirizzi</span>
+        </div>
+        <button class="toggle-switch on" id="toggle-bm-bar" onclick="toggleBookmarksBar()"></button>
+      </div>
+      <div class="setting-row">
+        <div class="sr-label">
+          Motore di ricerca
+        </div>
+        <select class="se-select" id="se-select" onchange="changeSearchEngine(this.value)">
+          <option value="google">Google</option>
+          <option value="bing">Bing</option>
+          <option value="duckduckgo">DuckDuckGo</option>
+          <option value="brave">Brave</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="account-info-row">
+      <div class="info-chip"><i class="fas fa-shield-halved"></i><span id="adblock-chip-text">AdBlock attivo</span></div>
+    </div>
+
+    <button class="danger-btn" onclick="confirmClearAll()"><i class="fas fa-trash"></i> Cancella tutti i dati</button>
+  </div>
+
+  <!-- History tab -->
+  <div id="tab-history" class="panel-body hidden">
+    <div class="history-toolbar">
+      <input type="text" id="history-search" placeholder="Cerca nella cronologia…" oninput="filterHistory(this.value)">
+      <button class="icon-btn" onclick="clearHistory()" title="Cancella cronologia"><i class="fas fa-trash"></i></button>
+    </div>
+    <div id="history-list"><div class="empty-state"><i class="fas fa-clock"></i><p>Nessuna cronologia</p></div></div>
+  </div>
+
+  <!-- Bookmarks tab -->
+  <div id="tab-bookmarks" class="panel-body hidden">
+    <div id="bookmarks-list"><div class="empty-state"><i class="fas fa-star"></i><p>Nessun preferito</p></div></div>
+  </div>
+
+  <!-- Saved pages tab -->
+  <div id="tab-saved" class="panel-body hidden">
+    <div id="saved-list"><div class="empty-state"><i class="fas fa-bookmark"></i><p>Nessuna pagina salvata</p></div></div>
+  </div>
+
+  <!-- Password manager tab -->
+  <div id="tab-passwords" class="panel-body hidden">
+    <div class="pw-toolbar">
+      <input type="text" id="pw-search" placeholder="Cerca sito o email…" oninput="filterPasswords(this.value)">
+      <button class="pw-add-btn" onclick="openPwModal()"><i class="fas fa-plus"></i> Aggiungi</button>
+    </div>
+    <div id="pw-list"><div class="empty-state"><i class="fas fa-key"></i><p>Nessuna password salvata</p></div></div>
+  </div>
+
+  <!-- Extensions tab -->
+  <div id="tab-extensions" class="panel-body hidden">
+    <div class="ext-section">
+
+      <h4>Installa dal Web Store</h4>
+      <div class="ext-note">
+        <i class="fas fa-circle-check" style="color:var(--green)"></i>
+        Il browser si presenta come <strong>Chrome 120</strong> — il Chrome Web Store lo riconosce come browser compatibile.<br>
+        Clicca <strong>"Aggiungi a Chrome"</strong> su qualsiasi estensione: verrà installata automaticamente.
+      </div>
+      <div class="ext-store-btns">
+        <div class="ext-store-btn" onclick="navigate('https://chromewebstore.google.com/')">
+          <i class="fab fa-chrome" style="color:#4285f4"></i>
+          <div class="esb-info">
+            <span class="esb-name">Chrome Web Store</span>
+            <span class="esb-sub">Estensioni Chrome — installazione automatica</span>
+          </div>
+          <i class="fas fa-arrow-up-right-from-square" style="margin-left:auto;font-size:11px;color:var(--txt3)"></i>
+        </div>
+        <div class="ext-store-btn" onclick="navigate('https://microsoftedge.microsoft.com/addons/')">
+          <i class="fab fa-edge" style="color:#0078d7"></i>
+          <div class="esb-info">
+            <span class="esb-name">Microsoft Edge Add-ons</span>
+            <span class="esb-sub">Scarica .crx e carica come file locale</span>
+          </div>
+          <i class="fas fa-arrow-up-right-from-square" style="margin-left:auto;font-size:11px;color:var(--txt3)"></i>
+        </div>
+      </div>
+
+      <h4 style="margin-top:8px">Carica Estensione Locale</h4>
+      <div class="ext-note" style="margin-bottom:6px">
+        <i class="fas fa-folder-open"></i>
+        Carica una cartella <em>unpacked</em> (estratta da uno .zip o .crx). L'estensione sarà persistente tra i riavvii.
+      </div>
+      <button class="pw-add-btn" style="width:100%;justify-content:center;display:flex;gap:8px;align-items:center" onclick="loadLocalExtension()">
+        <i class="fas fa-folder-open"></i> Carica cartella estensione…
+      </button>
+
+      <h4 style="margin-top:10px">Estensioni installate</h4>
+      <div id="ext-loaded-list" style="display:flex;flex-direction:column;gap:5px"></div>
+    </div>
+  </div>
+</aside>
+
+<!-- Overlay -->
+<div id="overlay" class="hidden" onclick="closeMenus(); closePanel();"></div>
+<!-- Password Modal -->
+<div id="pw-modal" class="hidden">
+  <div class="pw-modal-box">
+    <div class="pw-modal-title"><i class="fas fa-key" style="color:var(--accent);margin-right:8px"></i>Aggiungi credenziali</div>
+    <div class="pw-modal-fields">
+      <div class="field-group">
+        <label>Sito / App</label>
+        <input type="text" id="pw-site" placeholder="es. google.com" autocomplete="off">
+      </div>
+      <div class="field-group">
+        <label>Email / Username</label>
+        <input type="text" id="pw-user" placeholder="email@esempio.com" autocomplete="off">
+      </div>
+      <div class="field-group">
+        <label>Password</label>
+        <div style="position:relative">
+          <input type="password" id="pw-pass" placeholder="••••••••" autocomplete="new-password"
+                 style="width:100%;padding-right:36px">
+          <button onclick="togglePwInput()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--txt3);cursor:pointer;font-size:11px" id="pw-eye">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="pw-modal-footer">
+      <button class="pw-modal-cancel" onclick="closePwModal()">Annulla</button>
+      <button class="pw-modal-save"   onclick="savePwEntry()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-wrap"></div>
+
+<script>
+const { ipcRenderer } = require('electron');
+
+// ── State ────────────────────────────────────────
+let tabs         = {};
+let activeTabId  = null;
+let tabCounter   = 0;
+let isLoading    = false;
+let accountSaveTimer = null;
+let allHistory   = [];
+let allBookmarks = [];
+let currentZoom  = 1.0;
+let adblockOn    = true;
+let bmBarVisible = true;
+let searchEngine = 'google';
+
+const SE_URLS = {
+  google:    q => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
+  bing:      q => `https://www.bing.com/search?q=${encodeURIComponent(q)}`,
+  duckduckgo:q => `https://duckduckgo.com/?q=${encodeURIComponent(q)}`,
+  brave:     q => `https://search.brave.com/search?q=${encodeURIComponent(q)}`
+};
+
+// ── Init ─────────────────────────────────────────
+window.addEventListener('load', async () => {
+  await loadAllData();
+  createTab();
+});
+
+ipcRenderer.on('window-state', (e, state) => {
+  // could update max button icon here if desired
+});
+
+// ── Keyboard shortcuts ───────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 't') { e.preventDefault(); createTab(); }
+  if (e.ctrlKey && e.key === 'w') { e.preventDefault(); closeTab(activeTabId, new Event('x')); }
+  if (e.ctrlKey && e.key === 'l') { e.preventDefault(); document.getElementById('omnibar').select(); }
+  if (e.ctrlKey && e.key === 'f') { e.preventDefault(); toggleFind(); }
+  if (e.ctrlKey && e.key === 's') { e.preventDefault(); savePage(); }
+  if (e.ctrlKey && e.key === 'h') { e.preventDefault(); togglePanel('history'); }
+  if (e.ctrlKey && e.key === 'd') { e.preventDefault(); toggleBookmark(); }
+  if (e.ctrlKey && e.key === 'r') { e.preventDefault(); reloadOrStop(); }
+  if (e.ctrlKey && e.key === '+') { e.preventDefault(); changeZoom(0.1); }
+  if (e.ctrlKey && e.key === '-') { e.preventDefault(); changeZoom(-0.1); }
+  if (e.ctrlKey && e.key === '0') { e.preventDefault(); setZoom(1.0); }
+  if (e.key === 'F5')   reloadOrStop();
+  if (e.key === 'F12')  activeWV()?.openDevTools();
+  if (e.key === 'Escape') { closeMenus(); closeFind(); }
+  if (e.altKey && e.key === 'ArrowLeft')  activeWV()?.goBack();
+  if (e.altKey && e.key === 'ArrowRight') activeWV()?.goForward();
+  // Ctrl+1-9 switch tabs
+  if (e.ctrlKey && e.key >= '1' && e.key <= '9') {
+    const ids = Object.keys(tabs);
+    const idx = parseInt(e.key) - 1;
+    if (ids[idx]) switchTab(ids[idx]);
+  }
+});
+
+// ── Load all data ────────────────────────────────
+async function loadAllData() {
+  try {
+    const data = await ipcRenderer.invoke('get-data');
+    const acc = data.account || {};
+    document.getElementById('acc-name').value  = acc.name  || '';
+    document.getElementById('acc-email').value = acc.email || '';
+    if (acc.avatar) setAvatarImg(acc.avatar);
+
+    const s = data.settings || {};
+    adblockOn    = s.adblock    !== false;
+    bmBarVisible = s.bmBar      !== false;
+    searchEngine = s.searchEngine || 'google';
+    currentZoom  = s.zoom || 1.0;
+
+    document.getElementById('se-select').value = searchEngine;
+    applyAdblockUI();
+    applyBmBarUI();
+    updateZoomUI();
+
+    allHistory   = data.history   || [];
+    allBookmarks = data.bookmarks || [];
+    renderBookmarksBar();
+  } catch(e) {}
+}
+
+// ── TABS ─────────────────────────────────────────
+function createTab(url = null) {
+  tabCounter++;
+  const id = `tab_${tabCounter}`;
+
+  const tab = document.createElement('div');
+  tab.className = 'tab';
+  tab.id = `t_${id}`;
+  tab.draggable = true;
+  tab.innerHTML = `
+    <div class="tab-spinner"></div>
+    <div class="tab-favicon"><i class="fas fa-globe tab-globe"></i><img class="tab-favicon-img" src="" style="display:none" onerror="this.style.display='none';this.previousElementSibling.style.display='flex'"></div>
+    <span class="tab-title">Nuova scheda</span>
+    <i class="fas fa-volume-high tab-audio"></i>
+    <button class="tab-close" onclick="closeTab('${id}',event)" title="Chiudi scheda"><i class="fas fa-xmark"></i></button>`;
+
+  tab.addEventListener('click', e => { if (!e.target.closest('.tab-close')) switchTab(id); });
+  tab.addEventListener('auxclick', e => { if (e.button === 1) closeTab(id, e); });
+
+  // Drag-to-reorder
+  tab.addEventListener('dragstart', e => {
+    e.dataTransfer.setData('text/plain', id);
+    setTimeout(() => tab.classList.add('dragging'), 0);
+  });
+  tab.addEventListener('dragend', () => tab.classList.remove('dragging'));
+  tab.addEventListener('dragover', e => { e.preventDefault(); tab.classList.add('drag-over'); });
+  tab.addEventListener('dragleave', () => tab.classList.remove('drag-over'));
+  tab.addEventListener('drop', e => {
+    e.preventDefault();
+    tab.classList.remove('drag-over');
+    const fromId = e.dataTransfer.getData('text/plain');
+    if (fromId && fromId !== id) reorderTab(fromId, id);
+  });
+
+  document.getElementById('tab-list').appendChild(tab);
+
+  const wv = document.createElement('webview');
+  wv.id  = `wv_${id}`;
+  wv.src = 'about:blank';
+  wv.setAttribute('allowpopups', '');
+  wv.setAttribute('partition', 'persist:main');
+  // Preload: sovrascrive navigator.userAgent ecc. prima della pagina
+  try {
+    const preloadPath = require('path').join(__dirname, 'preload-webview.js');
+    wv.setAttribute('preload', 'file://' + preloadPath.replace(/\\/g, '/'));
+  } catch(e) {}
+  document.getElementById('wv-container').appendChild(wv);
+
+  tabs[id] = { wv, title: 'Nuova scheda', url: '', favicon: '' };
+  bindWV(id, wv);
+  switchTab(id);
+  if (url) navigate(url);
+}
+
+function reorderTab(fromId, toId) {
+  const list = document.getElementById('tab-list');
+  const fromEl = document.getElementById(`t_${fromId}`);
+  const toEl   = document.getElementById(`t_${toId}`);
+  if (!fromEl || !toEl) return;
+  list.insertBefore(fromEl, toEl);
+}
+
+function closeTab(id, e) {
+  e && e.stopPropagation();
+  document.getElementById(`t_${id}`)?.remove();
+  tabs[id]?.wv?.remove();
+  delete tabs[id];
+  const rem = Object.keys(tabs);
+  if (!rem.length) createTab();
+  else if (activeTabId === id) switchTab(rem[rem.length - 1]);
+}
+
+function duplicateTab() {
+  const url = tabs[activeTabId]?.url;
+  createTab(url || null);
+}
+
+function switchTab(id) {
+  if (!tabs[id]) return;
+  activeTabId = id;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('webview').forEach(w => w.classList.remove('visible'));
+  document.getElementById(`t_${id}`)?.classList.add('active');
+  const wv  = tabs[id].wv;
+  wv.classList.add('visible');
+  const url = tabs[id].url;
+  const isHome = !url || url === 'about:blank';
+  document.getElementById('home').style.display    = isHome ? 'flex' : 'none';
+  document.getElementById('omnibar').value         = isHome ? '' : url;
+  document.getElementById('omni-clear').style.opacity = url ? '1' : '0';
+  updateSSLIcon(url);
+  updateNavBtns();
+  updateBookmarkBtn(url);
+  applyZoomToWV(wv);
+}
+
+function bindWV(id, wv) {
+  wv.addEventListener('page-title-updated', e => {
+    if (!tabs[id]) return;
+    tabs[id].title = e.title;
+    const el = document.querySelector(`#t_${id} .tab-title`);
+    if (el) el.textContent = e.title;
+    document.title = e.title;
+  });
+
+  wv.addEventListener('page-favicon-updated', e => {
+    if (!tabs[id] || !e.favicons[0]) return;
+    tabs[id].favicon = e.favicons[0];
+    const img   = document.querySelector(`#t_${id} .tab-favicon-img`);
+    const globe = document.querySelector(`#t_${id} .tab-globe`);
+    if (img) { img.src = e.favicons[0]; img.style.display = 'block'; if(globe) globe.style.display='none'; }
+  });
+
+  wv.addEventListener('did-start-loading', () => {
+    if (!tabs[id]) return;
+    const tab = document.getElementById(`t_${id}`);
+    if (tab) tab.classList.add('loading');
+    if (activeTabId === id) setLoadingState(true);
+  });
+
+  wv.addEventListener('did-stop-loading', () => {
+    if (!tabs[id]) return;
+    const tab = document.getElementById(`t_${id}`);
+    if (tab) tab.classList.remove('loading');
+    if (activeTabId === id) { setLoadingState(false); updateNavBtns(); }
+    const url = wv.getURL ? wv.getURL() : '';
+    if (url && url !== 'about:blank') {
+      tabs[id].url = url;
+      if (activeTabId === id) {
+        document.getElementById('omnibar').value = url;
+        updateSSLIcon(url);
+        updateBookmarkBtn(url);
+      }
+      ipcRenderer.invoke('add-history', { url, title: tabs[id].title || url, favicon: tabs[id].favicon || '' }).catch(()=>{});
+    }
+    applyZoomToWV(wv);
+  });
+
+  wv.addEventListener('new-window', e => createTab(e.url));
+
+  wv.addEventListener('did-navigate', e => {
+    if (!tabs[id]) return;
+    tabs[id].url = e.url;
+    if (activeTabId === id) {
+      document.getElementById('omnibar').value = e.url;
+      updateSSLIcon(e.url);
+      updateNavBtns();
+      updateBookmarkBtn(e.url);
+    }
+  });
+
+  // Context menu
+  initWebviewContextMenu(id, wv);
+}
+
+// ── Navigate ──────────────────────────────────────
+function navigate(raw) {
+  let url = (raw || '').trim();
+  if (!url) return;
+  if (/^https?:\/\//i.test(url)) {}
+  else if (/^[\w\-]+\.[\w\-]+(\.[\w\-]+)*(\/.*)?$/.test(url) && !url.includes(' ')) url = 'https://' + url;
+  else url = SE_URLS[searchEngine](url);
+
+  const wv = activeWV();
+  if (!wv) { createTab(url); return; }
+  document.getElementById('home').style.display = 'none';
+  wv.loadURL(url);
+  document.getElementById('omnibar').value = url;
+  if (activeTabId) tabs[activeTabId].url = url;
+  updateSSLIcon(url);
+  updateBookmarkBtn(url);
+}
+
+function omniboxKey(e) { if (e.key === 'Enter') { navigate(e.target.value); e.target.blur(); } }
+function homeKey(e)    { if (e.key === 'Enter') { navigate(document.getElementById('home-search').value); document.getElementById('home-search').value = ''; } }
+function onOmniInput(inp) { document.getElementById('omni-clear').style.opacity = inp.value ? '1' : '0'; }
+function clearOmnibar() { const o = document.getElementById('omnibar'); o.value = ''; o.focus(); document.getElementById('omni-clear').style.opacity = '0'; }
+function reloadOrStop() { const wv = activeWV(); if (!wv) return; if (isLoading) wv.stop(); else wv.reload(); }
+function goHome() {
+  if (!activeTabId || !tabs[activeTabId]) return;
+  tabs[activeTabId].url = '';
+  document.getElementById('home').style.display = 'flex';
+  document.getElementById('omnibar').value = '';
+  document.getElementById('omni-clear').style.opacity = '0';
+  updateSSLIcon('');
+  updateBookmarkBtn('');
+}
+function activeWV() { return activeTabId ? tabs[activeTabId]?.wv : null; }
+
+// ── Loading state ─────────────────────────────────
+function setLoadingState(loading) {
+  isLoading = loading;
+  const icon = document.getElementById('reload-icon');
+  const bar  = document.getElementById('load-bar');
+  const prog = document.getElementById('load-progress');
+  if (loading) {
+    icon.className = 'fas fa-xmark';
+    bar.style.opacity = '1';
+    prog.style.width = '0%';
+    setTimeout(() => { prog.style.width = '70%'; }, 30);
+  } else {
+    icon.className = 'fas fa-rotate-right';
+    prog.style.width = '100%';
+    setTimeout(() => { bar.style.opacity = '0'; prog.style.width = '0%'; }, 400);
+  }
+}
+
+function updateNavBtns() {
+  const wv = activeWV();
+  if (!wv) return;
+  try {
+    document.getElementById('btn-back').disabled = !wv.canGoBack();
+    document.getElementById('btn-fwd').disabled  = !wv.canGoForward();
+  } catch(e) {}
+}
+
+function updateSSLIcon(url) {
+  const icon = document.getElementById('ssl-icon');
+  if (!url || url === 'about:blank') { icon.className = 'fas fa-globe'; icon.style.color = 'var(--txt3)'; return; }
+  if (url.startsWith('https://'))    { icon.className = 'fas fa-lock';  icon.style.color = 'var(--green)'; }
+  else                               { icon.className = 'fas fa-triangle-exclamation'; icon.style.color = 'var(--yellow)'; }
+}
+
+// ── Zoom ──────────────────────────────────────────
+function changeZoom(delta) { setZoom(Math.max(0.3, Math.min(3.0, currentZoom + delta))); }
+function setZoom(val) {
+  currentZoom = parseFloat(val.toFixed(1));
+  updateZoomUI();
+  applyZoomToWV(activeWV());
+  ipcRenderer.invoke('save-settings', { zoom: currentZoom }).catch(()=>{});
+}
+function updateZoomUI() {
+  document.getElementById('zoom-level').textContent = Math.round(currentZoom * 100) + '%';
+}
+function applyZoomToWV(wv) {
+  if (!wv) return;
+  try { wv.setZoomFactor(currentZoom); } catch(e) {}
+}
+
+// ── AdBlock ───────────────────────────────────────
+function toggleAdblock() {
+  adblockOn = !adblockOn;
+  applyAdblockUI();
+  ipcRenderer.invoke('save-settings', { adblock: adblockOn }).catch(()=>{});
+  showToast(adblockOn ? 'AdBlock attivato' : 'AdBlock disattivato');
+}
+function applyAdblockUI() {
+  const badge  = document.getElementById('adblock-badge');
+  const tog1   = document.getElementById('adblock-toggle');
+  const tog2   = document.getElementById('toggle-adblock');
+  const chip   = document.getElementById('adblock-chip-text');
+  if (adblockOn) {
+    badge.classList.remove('off'); badge.title = 'AdBlock attivo';
+    tog1?.classList.add('on'); tog2?.classList.add('on');
+    if (chip) chip.textContent = 'AdBlock attivo';
+  } else {
+    badge.classList.add('off'); badge.title = 'AdBlock disattivato';
+    tog1?.classList.remove('on'); tog2?.classList.remove('on');
+    if (chip) chip.textContent = 'AdBlock disattivato';
+  }
+}
+
+// ── Bookmarks bar ─────────────────────────────────
+function toggleBookmarksBar() {
+  bmBarVisible = !bmBarVisible;
+  applyBmBarUI();
+  ipcRenderer.invoke('save-settings', { bmBar: bmBarVisible }).catch(()=>{});
+}
+function applyBmBarUI() {
+  const bar  = document.getElementById('bookmarks-bar');
+  const tog1 = document.getElementById('bm-bar-toggle');
+  const tog2 = document.getElementById('toggle-bm-bar');
+  if (bmBarVisible) {
+    bar.classList.remove('hidden');
+    tog1?.classList.add('on'); tog2?.classList.add('on');
+  } else {
+    bar.classList.add('hidden');
+    tog1?.classList.remove('on'); tog2?.classList.remove('on');
+  }
+}
+
+// ── Bookmark current page ─────────────────────────
+async function toggleBookmark() {
+  const url = tabs[activeTabId]?.url || '';
+  if (!url || url === 'about:blank') return;
+  const isBookmarked = allBookmarks.some(b => b.url === url);
+  if (isBookmarked) {
+    await ipcRenderer.invoke('remove-bookmark', url);
+    allBookmarks = allBookmarks.filter(b => b.url !== url);
+    showToast('Preferito rimosso');
+  } else {
+    const title   = tabs[activeTabId]?.title || url;
+    const favicon = tabs[activeTabId]?.favicon || '';
+    const bm = { url, title, favicon };
+    await ipcRenderer.invoke('add-bookmark', bm);
+    allBookmarks.unshift({ ...bm, id: Date.now() });
+    showToast('Aggiunto ai preferiti');
+  }
+  updateBookmarkBtn(url);
+  renderBookmarksBar();
+  if (!document.getElementById('tab-bookmarks').classList.contains('hidden')) renderBookmarksPanel();
+}
+
+function updateBookmarkBtn(url) {
+  const btn = document.getElementById('btn-bookmark');
+  const isBookmarked = url && allBookmarks.some(b => b.url === url);
+  btn.classList.toggle('bookmarked', !!isBookmarked);
+  btn.innerHTML = isBookmarked ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
+}
+
+function renderBookmarksBar() {
+  const bar = document.getElementById('bookmarks-bar');
+  bar.innerHTML = allBookmarks.map((bm, i) => {
+    const label = bm.title.length > 25 ? bm.title.slice(0, 25) + '…' : bm.title;
+    const fav   = bm.favicon ? `<img src="${bm.favicon}" onerror="this.style.display='none'">` : '<i class="fas fa-globe" style="font-size:10px;color:var(--txt3)"></i>';
+    return `<div class="bm-item" onclick="navigate('${bm.url.replace(/'/g,"\\'")}')">
+      ${fav}<span>${label}</span>
+      <span class="bm-del" onclick="removeBookmarkDirect(${i},event)" title="Rimuovi"><i class="fas fa-xmark"></i></span>
+    </div>`;
+  }).join('');
+}
+
+function renderBookmarksPanel() {
+  const list = document.getElementById('bookmarks-list');
+  if (!allBookmarks.length) { list.innerHTML = '<div class="empty-state"><i class="fas fa-star"></i><p>Nessun preferito</p></div>'; return; }
+  list.innerHTML = allBookmarks.map((bm, i) => {
+    const domain = (() => { try { return new URL(bm.url).hostname; } catch { return bm.url; } })();
+    const fav = bm.favicon ? `<img src="${bm.favicon}" onerror="this.style.display='none'" style="width:14px;height:14px;border-radius:2px">` : '<i class="fas fa-globe" style="font-size:11px;color:var(--txt3)"></i>';
+    return `<div class="bm-panel-item" onclick="navigate('${bm.url.replace(/'/g,"\\'")}'); closePanel();">
+      <div style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${fav}</div>
+      <div style="flex-grow:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${bm.title}</div>
+        <div style="font-size:10px;color:var(--txt3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">${domain}</div>
+      </div>
+      <button class="bpm-del" onclick="removeBookmarkDirect(${i},event)" title="Rimuovi"><i class="fas fa-xmark"></i></button>
+    </div>`;
+  }).join('');
+}
+
+async function removeBookmarkDirect(index, e) {
+  e.stopPropagation();
+  const bm = allBookmarks[index];
+  if (!bm) return;
+  await ipcRenderer.invoke('remove-bookmark', bm.url);
+  allBookmarks.splice(index, 1);
+  renderBookmarksBar();
+  renderBookmarksPanel();
+  updateBookmarkBtn(tabs[activeTabId]?.url || '');
+  showToast('Preferito rimosso');
+}
+
+// ── Find in page ──────────────────────────────────
+let findOpen = false;
+function toggleFind() {
+  if (findOpen) closeFind();
+  else {
+    findOpen = true;
+    document.getElementById('find-bar').classList.remove('hidden');
+    document.getElementById('find-input').focus();
+    document.getElementById('find-input').select();
+  }
+}
+function closeFind() {
+  findOpen = false;
+  document.getElementById('find-bar').classList.add('hidden');
+  const wv = activeWV();
+  try { wv?.stopFindInPage?.('clearSelection'); } catch(e) {}
+  document.getElementById('find-count').textContent = '';
+}
+function doFind() {
+  const q  = document.getElementById('find-input').value;
+  const wv = activeWV();
+  if (!wv || !q) { document.getElementById('find-count').textContent = ''; return; }
+  try { wv.findInPage(q); } catch(e) {}
+}
+function findStep(dir) {
+  const q  = document.getElementById('find-input').value;
+  const wv = activeWV();
+  if (!wv || !q) return;
+  try { wv.findInPage(q, { forward: dir > 0, findNext: true }); } catch(e) {}
+}
+function findKey(e) {
+  if (e.key === 'Enter') findStep(e.shiftKey ? -1 : 1);
+  if (e.key === 'Escape') closeFind();
+}
+
+// ── Search engine ─────────────────────────────────
+function changeSearchEngine(val) {
+  searchEngine = val;
+  ipcRenderer.invoke('save-settings', { searchEngine: val }).catch(()=>{});
+  showToast('Motore di ricerca: ' + val.charAt(0).toUpperCase() + val.slice(1));
+}
+
+// ── Panel ─────────────────────────────────────────
+function togglePanel(tab) {
+  const panel   = document.getElementById('side-panel');
+  const isOpen  = !panel.classList.contains('hidden');
+  const cur     = document.querySelector('.ptab.active')?.id?.replace('ptab-','');
+  if (isOpen && cur === tab) { closePanel(); return; }
+  panel.classList.remove('hidden');
+  document.getElementById('overlay').classList.remove('hidden');
+  showPanelTab(tab);
+  if (tab === 'history')    loadHistory();
+  if (tab === 'bookmarks')  renderBookmarksPanel();
+  if (tab === 'saved')      loadSavedPages();
+  if (tab === 'passwords')  loadPasswords();
+  if (tab === 'extensions') refreshExtList();
+}
+function closePanel() {
+  document.getElementById('side-panel').classList.add('hidden');
+  document.getElementById('overlay').classList.add('hidden');
+}
+function showPanelTab(tab) {
+  document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel-body').forEach(b => b.classList.add('hidden'));
+  document.getElementById(`ptab-${tab}`)?.classList.add('active');
+  document.getElementById(`tab-${tab}`)?.classList.remove('hidden');
+}
+
+// ── Menu ──────────────────────────────────────────
+function toggleMenu() {
+  const m = document.getElementById('dropdown-menu');
+  const isHidden = m.classList.contains('hidden');
+  m.classList.toggle('hidden');
+  if (isHidden) document.getElementById('overlay').classList.remove('hidden');
+  else if (document.getElementById('side-panel').classList.contains('hidden')) document.getElementById('overlay').classList.add('hidden');
+}
+function closeMenus() {
+  document.getElementById('dropdown-menu').classList.add('hidden');
+  if (document.getElementById('side-panel').classList.contains('hidden')) document.getElementById('overlay').classList.add('hidden');
+}
+
+// ── Account ───────────────────────────────────────
+function scheduleAccountSave() { clearTimeout(accountSaveTimer); accountSaveTimer = setTimeout(saveAccount, 800); }
+async function saveAccount() {
+  const account = { name: document.getElementById('acc-name').value, email: document.getElementById('acc-email').value };
+  try { await ipcRenderer.invoke('save-account', account); } catch(e) {}
+}
+function changeAvatar(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    setAvatarImg(ev.target.result);
+    try { await ipcRenderer.invoke('save-account', { avatar: ev.target.result }); } catch(e) {}
+  };
+  reader.readAsDataURL(file);
+}
+function setAvatarImg(src) {
+  const img = document.getElementById('avatar-img');
+  img.src = src; img.style.display = 'block';
+  document.getElementById('avatar-icon').style.display = 'none';
+}
+async function confirmClearAll() {
+  if (!confirm('Cancellare tutti i dati (account, preferiti, cronologia, impostazioni)?')) return;
+  try { await ipcRenderer.invoke('clear-all'); } catch(e) {}
+  document.getElementById('acc-name').value  = '';
+  document.getElementById('acc-email').value = '';
+  document.getElementById('avatar-img').style.display  = 'none';
+  document.getElementById('avatar-icon').style.display = 'flex';
+  allHistory = []; allBookmarks = [];
+  renderHistory([]); renderBookmarksBar(); renderBookmarksPanel();
+  showToast('Tutti i dati cancellati');
+}
+
+// ── History ───────────────────────────────────────
+async function loadHistory() {
+  try {
+    const data = await ipcRenderer.invoke('get-data');
+    allHistory = data.history || [];
+    renderHistory(allHistory);
+  } catch(e) {
+    document.getElementById('history-list').innerHTML = '<div class="empty-state"><i class="fas fa-plug"></i><p>Errore caricamento</p></div>';
+  }
+}
+function renderHistory(items) {
+  const container = document.getElementById('history-list');
+  if (!items.length) { container.innerHTML = '<div class="empty-state"><i class="fas fa-clock"></i><p>Nessuna cronologia</p></div>'; return; }
+  container.innerHTML = items.map((item, i) => {
+    const d       = new Date(item.timestamp);
+    const dateStr = d.toLocaleDateString('it-IT', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const domain  = (() => { try { return new URL(item.url).hostname; } catch { return item.url; } })();
+    const fav     = item.favicon ? `<img src="${item.favicon}" onerror="this.style.display='none'" style="width:14px;height:14px">` : '<i class="fas fa-globe"></i>';
+    return `<div class="history-item" onclick="navigate('${item.url.replace(/'/g,"\\'")}'); closePanel();">
+      <div class="hi-favicon">${fav}</div>
+      <div class="hi-info">
+        <div class="hi-title">${item.title || domain}</div>
+        <div class="hi-url">${domain}</div>
+      </div>
+      <div class="hi-meta">
+        <span class="hi-date">${dateStr}</span>
+        <button class="hi-del" onclick="deleteHistoryItem(${i},event)" title="Rimuovi"><i class="fas fa-xmark"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function filterHistory(q) {
+  if (!q) { renderHistory(allHistory); return; }
+  renderHistory(allHistory.filter(h => (h.title||'').toLowerCase().includes(q.toLowerCase()) || (h.url||'').toLowerCase().includes(q.toLowerCase())));
+}
+async function deleteHistoryItem(index, e) {
+  e.stopPropagation();
+  try { await ipcRenderer.invoke('delete-history-item', index); allHistory.splice(index, 1); renderHistory(allHistory); } catch(e) {}
+}
+async function clearHistory() {
+  if (!confirm('Cancellare tutta la cronologia?')) return;
+  try { await ipcRenderer.invoke('clear-history'); allHistory = []; renderHistory([]); } catch(e) {}
+}
+
+// ── Manual window drag via IPC ────────────────────
+(function setupWindowDrag() {
+  let dragging = false;
+
+  function isInteractive(el) {
+    return el.closest('button, input, select, a, .tab, .tab-add-btn, .title-actions, #adblock-badge, [onclick]');
+  }
+
+  function startDrag(e) {
+    if (e.button !== 0) return;
+    if (isInteractive(e.target)) return;
+    dragging = true;
+    ipcRenderer.send('drag-start', { mouseX: e.screenX, mouseY: e.screenY });
+    e.preventDefault();
+  }
+
+  function onMouseMove(e) {
+    if (!dragging) return;
+    ipcRenderer.send('drag-move', { mouseX: e.screenX, mouseY: e.screenY });
+  }
+
+  function stopDrag() {
+    if (!dragging) return;
+    dragging = false;
+    ipcRenderer.send('drag-end');
+  }
+
+  document.getElementById('titlebar').addEventListener('mousedown', startDrag);
+  document.getElementById('titlebar-drag-handle').addEventListener('mousedown', e => {
+    dragging = true;
+    ipcRenderer.send('drag-start', { mouseX: e.screenX, mouseY: e.screenY });
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove',  onMouseMove);
+  window.addEventListener('mouseup',    stopDrag);
+  window.addEventListener('mouseleave', stopDrag);
+
+  // Doppio click sulla barra del titolo → massimizza/ripristina
+  document.getElementById('titlebar').addEventListener('dblclick', e => {
+    if (isInteractive(e.target)) return;
+    ipcRenderer.send('window-ctrl', 'max');
+  });
+})();
+
+// ── Context menu su webview ────────────────────────
+// Intercettiamo il tasto destro direttamente sul webview con executeJavaScript
+// per ottenere selezione e stato degli appunti in tempo reale.
+
+function initWebviewContextMenu(id, wv) {
+  wv.addEventListener('context-menu', async (e) => {
+    const params = e.params || {};
+
+    // ── Posizione corretta ─────────────────────────
+    // e.params.x/y sono coordinate DENTRO il webview.
+    // Dobbiamo sommare l'offset del webview nel DOM.
+    const wvRect = wv.getBoundingClientRect();
+    const menuX  = wvRect.left + (params.x || 0);
+    const menuY  = wvRect.top  + (params.y || 0);
+
+    // Leggi selezione dal webview
+    let selectedText = params.selectionText || '';
+    if (!selectedText) {
+      try { selectedText = await wv.executeJavaScript('window.getSelection().toString()'); } catch(_) {}
+    }
+
+    // Campo editabile
+    let isEditable = params.isEditable || false;
+    if (!isEditable) {
+      try {
+        isEditable = await wv.executeJavaScript(
+          '!!(function(){ const el = document.activeElement; return el && (el.isContentEditable || el.tagName==="INPUT" || el.tagName==="TEXTAREA"); })()'
+        );
+      } catch(_) {}
+    }
+
+    const seName = { google:'Google', bing:'Bing', duckduckgo:'DuckDuckGo', brave:'Brave' }[searchEngine] || 'Google';
+    const items  = [];
+
+    // Link
+    if (params.linkURL) {
+      items.push({ icon:'fas fa-arrow-up-right-from-square', label:'Apri in nuova scheda', action:() => createTab(params.linkURL) });
+      items.push({ icon:'fas fa-copy', label:'Copia indirizzo link', action:() => navigator.clipboard.writeText(params.linkURL) });
+      items.push(null);
+    }
+
+    // Testo selezionato
+    if (selectedText) {
+      const preview = selectedText.length > 24 ? selectedText.slice(0,24)+'…' : selectedText;
+      items.push({ icon:'fas fa-copy', label:'Copia', action:() => {
+        // execCommand funziona solo nel contesto del webview
+        wv.executeJavaScript('document.execCommand("copy")').catch(() => {
+          navigator.clipboard.writeText(selectedText);
+        });
+      }});
+      if (isEditable)
+        items.push({ icon:'fas fa-scissors', label:'Taglia', action:() => wv.executeJavaScript('document.execCommand("cut")') });
+      items.push({ icon:'fas fa-magnifying-glass', label:`Cerca "${preview}" su ${seName}`, action:() => createTab(SE_URLS[searchEngine](selectedText)) });
+      items.push(null);
+    }
+
+    // Incolla su campi editabili
+    if (isEditable) {
+      items.push({ icon:'fas fa-paste', label:'Incolla', action: async () => {
+        try {
+          const txt = await navigator.clipboard.readText();
+          await wv.executeJavaScript(`
+            (function(){
+              const el = document.activeElement;
+              if (!el) return;
+              if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                const s = el.selectionStart, en = el.selectionEnd;
+                el.value = el.value.slice(0,s) + ${JSON.stringify(txt)} + el.value.slice(en);
+                el.selectionStart = el.selectionEnd = s + ${JSON.stringify(txt)}.length;
+                el.dispatchEvent(new Event('input', {bubbles:true}));
+              } else if (el.isContentEditable) {
+                document.execCommand('insertText', false, ${JSON.stringify(txt)});
+              }
+            })()
+          `);
+        } catch(_) {}
+      }});
+      items.push(null);
+    }
+
+    if (!params.linkURL && !selectedText && !isEditable) {
+      items.push({ icon:'fas fa-rotate-right', label:'Ricarica pagina', action:() => reloadOrStop() });
+    }
+    items.push({ icon:'fas fa-floppy-disk', label:'Salva pagina', action:() => savePage() });
+    items.push({ icon:'fas fa-star',        label:'Aggiungi ai preferiti', action:() => toggleBookmark() });
+    items.push({ icon:'fas fa-print',       label:'Stampa…', action:() => activeWV()?.print() });
+    items.push(null);
+    items.push({ icon:'fas fa-code',        label:'Ispeziona elemento', action:() => wv.openDevTools() });
+
+    showCtxMenuItems(items, menuX, menuY);
+  });
+}
+
+function showCtxMenuItems(items, x, y) {
+  removeCtxMenu();
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu';
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+
+  items.forEach(item => {
+    if (!item) {
+      const sep = document.createElement('div'); sep.className = 'ctx-sep'; menu.appendChild(sep); return;
+    }
+    const el = document.createElement('div');
+    el.className = 'ctx-item';
+    el.innerHTML = `<i class="${item.icon}"></i>${item.label}`;
+    el.onclick = () => { item.action(); removeCtxMenu(); };
+    menu.appendChild(el);
+  });
+
+  document.body.appendChild(menu);
+
+  // Correggi posizione se fuori schermo
+  requestAnimationFrame(() => {
+    const rect = menu.getBoundingClientRect();
+    if (rect.right  > window.innerWidth)  menu.style.left = Math.max(0, x - rect.width)  + 'px';
+    if (rect.bottom > window.innerHeight) menu.style.top  = Math.max(0, y - rect.height) + 'px';
+  });
+
+  setTimeout(() => document.addEventListener('mousedown', removeCtxMenu, { once: true }), 0);
+}
+
+function removeCtxMenu() { document.querySelectorAll('.ctx-menu').forEach(m => m.remove()); }
+
+// ── Salva pagina ───────────────────────────────────
+async function savePage() {
+  const url     = tabs[activeTabId]?.url || '';
+  const title   = tabs[activeTabId]?.title || url;
+  const favicon = tabs[activeTabId]?.favicon || '';
+  if (!url || url === 'about:blank') { showToast('Nessuna pagina da salvare'); return; }
+
+  try {
+    await ipcRenderer.invoke('save-page', { url, title, favicon });
+    showToast('Pagina salvata');
+    // Se il pannello Salvate è aperto, aggiorna
+    if (!document.getElementById('tab-saved').classList.contains('hidden')) loadSavedPages();
+  } catch(e) { showToast('Errore nel salvataggio'); }
+}
+
+async function loadSavedPages() {
+  try {
+    const pages = await ipcRenderer.invoke('get-saved-pages');
+    renderSavedPages(pages);
+  } catch(e) {}
+}
+
+function renderSavedPages(items) {
+  const list = document.getElementById('saved-list');
+  if (!items.length) { list.innerHTML = '<div class="empty-state"><i class="fas fa-bookmark"></i><p>Nessuna pagina salvata</p></div>'; return; }
+  list.innerHTML = items.map((item, i) => {
+    const d      = new Date(item.savedAt);
+    const dateStr= d.toLocaleDateString('it-IT', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const domain = (() => { try { return new URL(item.url).hostname; } catch { return item.url; } })();
+    const fav    = item.favicon ? `<img src="${item.favicon}" onerror="this.style.display='none'" style="width:14px;height:14px;border-radius:2px">` : '<i class="fas fa-globe"></i>';
+    return `<div class="history-item" onclick="navigate('${item.url.replace(/'/g,"\\'")}'); closePanel();">
+      <div class="hi-favicon">${fav}</div>
+      <div class="hi-info">
+        <div class="hi-title">${item.title || domain}</div>
+        <div class="hi-url">${domain}</div>
+      </div>
+      <div class="hi-meta">
+        <span class="hi-date">${dateStr}</span>
+        <button class="hi-del" onclick="deleteSavedPage(${i},event)" title="Rimuovi"><i class="fas fa-xmark"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function deleteSavedPage(index, e) {
+  e.stopPropagation();
+  try { await ipcRenderer.invoke('delete-saved-page', index); await loadSavedPages(); } catch(e) {}
+}
+
+// ── Password Manager ───────────────────────────────
+let allPasswords = [];
+
+async function loadPasswords() {
+  try {
+    const data = await ipcRenderer.invoke('get-data');
+    allPasswords = data.passwords || [];
+    renderPasswords(allPasswords);
+  } catch(e) {}
+}
+
+function renderPasswords(items) {
+  const list = document.getElementById('pw-list');
+  if (!items.length) {
+    list.innerHTML = '<div class="empty-state"><i class="fas fa-key"></i><p>Nessuna password salvata<br><small style="font-size:10px;opacity:0.6">Clicca + Aggiungi per iniziare</small></p></div>';
+    return;
+  }
+  list.innerHTML = items.map((item, i) => `
+    <div class="pw-item">
+      <div class="pw-item-header">
+        <span class="pw-item-site">${item.site}</span>
+        <button class="pw-item-del" onclick="deletePwEntry(${i})" title="Elimina"><i class="fas fa-trash"></i></button>
+      </div>
+      <div class="pw-item-row">
+        <span class="pw-item-label">Email</span>
+        <span class="pw-item-val">${item.username}</span>
+        <button class="pw-copy-btn" onclick="copyToClip('${escJs(item.username)}', 'Email copiata')">Copia</button>
+      </div>
+      <div class="pw-item-row">
+        <span class="pw-item-label">Password</span>
+        <span class="pw-item-val pw-item-pw" id="pwval_${i}">••••••••</span>
+        <button class="pw-toggle-btn" onclick="togglePwVisibility(${i},'${escJs(item.password)}')" title="Mostra/nascondi"><i class="fas fa-eye" id="pweye_${i}"></i></button>
+        <button class="pw-copy-btn" onclick="copyToClip('${escJs(item.password)}', 'Password copiata')">Copia</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function escJs(str) {
+  return (str || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+}
+
+function filterPasswords(q) {
+  if (!q) { renderPasswords(allPasswords); return; }
+  renderPasswords(allPasswords.filter(p =>
+    (p.site||'').toLowerCase().includes(q.toLowerCase()) ||
+    (p.username||'').toLowerCase().includes(q.toLowerCase())
+  ));
+}
+
+function togglePwVisibility(i, pw) {
+  const val = document.getElementById(`pwval_${i}`);
+  const eye = document.getElementById(`pweye_${i}`);
+  if (!val) return;
+  if (val.classList.contains('revealed')) {
+    val.textContent = '••••••••';
+    val.classList.remove('revealed');
+    eye.className = 'fas fa-eye';
+  } else {
+    val.textContent = pw;
+    val.classList.add('revealed');
+    eye.className = 'fas fa-eye-slash';
+  }
+}
+
+function copyToClip(text, msg) {
+  navigator.clipboard.writeText(text).then(() => showToast(msg)).catch(() => showToast('Errore copia'));
+}
+
+function openPwModal() {
+  document.getElementById('pw-site').value  = tabs[activeTabId]?.url ? (() => { try { return new URL(tabs[activeTabId].url).hostname; } catch { return ''; } })() : '';
+  document.getElementById('pw-user').value  = '';
+  document.getElementById('pw-pass').value  = '';
+  document.getElementById('pw-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('pw-site').focus(), 50);
+}
+
+function closePwModal() {
+  document.getElementById('pw-modal').classList.add('hidden');
+}
+
+function togglePwInput() {
+  const inp = document.getElementById('pw-pass');
+  const eye = document.getElementById('pw-eye').querySelector('i');
+  if (inp.type === 'password') { inp.type = 'text';     eye.className = 'fas fa-eye-slash'; }
+  else                         { inp.type = 'password'; eye.className = 'fas fa-eye'; }
+}
+
+async function savePwEntry() {
+  const site     = document.getElementById('pw-site').value.trim();
+  const username = document.getElementById('pw-user').value.trim();
+  const password = document.getElementById('pw-pass').value;
+  if (!site || !username || !password) { showToast('Compila tutti i campi'); return; }
+  try {
+    await ipcRenderer.invoke('save-password', { site, username, password });
+    allPasswords.unshift({ site, username, password });
+    renderPasswords(allPasswords);
+    closePwModal();
+    showToast('Credenziali salvate');
+  } catch(e) { showToast('Errore nel salvataggio'); }
+}
+
+async function deletePwEntry(index) {
+  if (!confirm('Eliminare queste credenziali?')) return;
+  try {
+    await ipcRenderer.invoke('delete-password', index);
+    allPasswords.splice(index, 1);
+    renderPasswords(allPasswords);
+    showToast('Credenziali eliminate');
+  } catch(e) {}
+}
+
+// Chiudi modal con ESC o click fuori
+document.getElementById('pw-modal').addEventListener('mousedown', e => {
+  if (e.target === document.getElementById('pw-modal')) closePwModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('pw-modal').classList.contains('hidden')) {
+    e.preventDefault(); savePwEntry();
+  }
+});
+
+// ── Extensions (local unpacked) ───────────────────
+async function loadLocalExtension() {
+  try {
+    const result = await ipcRenderer.invoke('load-extension');
+    if (result.ok) {
+      showToast(`✓ Estensione caricata: ${result.name}`);
+      refreshExtList();
+    } else {
+      showToast(result.error === 'Annullato' ? 'Operazione annullata' : `Errore: ${result.error}`);
+    }
+  } catch(e) { showToast('Errore caricamento estensione'); }
+}
+
+async function removeExtension(id, name) {
+  if (!confirm(`Rimuovere l'estensione "${name}"?`)) return;
+  try {
+    const result = await ipcRenderer.invoke('remove-extension', id);
+    if (result.ok) { showToast('Estensione rimossa'); refreshExtList(); }
+    else showToast('Errore rimozione: ' + result.error);
+  } catch(e) { showToast('Errore rimozione'); }
+}
+
+async function refreshExtList() {
+  try {
+    const exts = await ipcRenderer.invoke('get-extensions');
+    const list  = document.getElementById('ext-loaded-list');
+    if (!exts || !exts.length) {
+      list.innerHTML = '<div class="empty-state" style="padding:16px 0"><i class="fas fa-puzzle-piece"></i><p>Nessuna estensione installata</p></div>';
+      return;
+    }
+    list.innerHTML = exts.map(ext => `
+      <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px">
+        <i class="fas fa-puzzle-piece" style="color:var(--accent);font-size:13px;flex-shrink:0"></i>
+        <div style="flex-grow:1;min-width:0">
+          <div style="font-size:12px;font-weight:500;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ext.name}</div>
+          <div style="font-size:10px;color:var(--green);margin-top:1px"><i class="fas fa-circle" style="font-size:6px"></i> Attiva</div>
+        </div>
+        <button onclick="removeExtension('${ext.id}','${escJs(ext.name)}')"
+          style="background:none;border:none;color:var(--txt3);cursor:pointer;padding:3px 6px;border-radius:5px;font-size:11px"
+          onmouseover="this.style.color='var(--red)';this.style.background='rgba(255,69,58,0.1)'"
+          onmouseout="this.style.color='var(--txt3)';this.style.background='none'"
+          title="Rimuovi">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    `).join('');
+  } catch(e) {}
+}
+
+// Notifiche auto-install da Web Store (download .crx intercettato dal main)
+ipcRenderer.on('extension-installed', (e, { name }) => {
+  showToast(`✓ Estensione installata: ${name}`, 3500);
+  refreshExtList();
+});
+ipcRenderer.on('extension-install-error', (e, msg) => {
+  showToast('Errore installazione: ' + msg, 4000);
+});
+
+// ── Toast ──────────────────────────────────────────
+function showToast(msg, duration = 2200) {
+  const wrap  = document.getElementById('toast-wrap');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  wrap.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('out');
+    setTimeout(() => toast.remove(), 220);
+  }, duration);
+}
+</script>
+</body>
+</html>
