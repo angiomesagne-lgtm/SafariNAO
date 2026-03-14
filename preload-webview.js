@@ -205,3 +205,86 @@ try {
 try {
   Object.defineProperty(navigator, 'platform', { get: () => 'Win32', configurable: true });
 } catch(e) {}
+
+// ── 11. chrome.webstore API ───────────────────────────────────
+// Il Web Store usa chrome.webstore.install() per installare estensioni.
+// Intercettiamo la chiamata e la mandiamo al processo main tramite IPC
+// che gestirà il download e l'installazione del .crx.
+try {
+  const { ipcRenderer } = require('electron');
+
+  if (!window.chrome) window.chrome = {};
+
+  window.chrome.webstore = {
+    install: function(url, successCallback, failureCallback) {
+      // url può essere undefined (usa l'URL corrente) o l'URL del crx
+      const installUrl = url || window.location.href;
+      console.log('[SafariNAO] chrome.webstore.install intercettato:', installUrl);
+
+      ipcRenderer.invoke('webstore-install', { url: installUrl })
+        .then(result => {
+          if (result && result.ok) {
+            if (typeof successCallback === 'function') successCallback();
+          } else {
+            if (typeof failureCallback === 'function') failureCallback(result?.error || 'Install failed', 'INSTALL_ERROR');
+          }
+        })
+        .catch(err => {
+          if (typeof failureCallback === 'function') failureCallback(err.message, 'INSTALL_ERROR');
+        });
+    },
+
+    onInstallStageChanged: {
+      addListener:    () => {},
+      removeListener: () => {},
+    },
+    onDownloadProgress: {
+      addListener:    () => {},
+      removeListener: () => {},
+    },
+  };
+} catch(e) {}
+
+// ── 12. Intercetta link "Aggiungi a Chrome" (nuova UI Web Store) ──
+// Il nuovo Web Store usa fetch() verso l'API interna di Chrome.
+// Intercettiamo il click sul pulsante "Aggiungi" direttamente nel DOM.
+try {
+  const { ipcRenderer } = require('electron');
+
+  // Aspetta che il DOM sia pronto e cerca i bottoni di installazione
+  function hookInstallButtons() {
+    // Selettori per il pulsante "Aggiungi a Chrome" / "Aggiungi"
+    const selectors = [
+      'button[aria-label*="Aggiungi"]',
+      'button[aria-label*="Add to Chrome"]',
+      'button[aria-label*="Install"]',
+      '.webstore-test-button-label',
+      '[data-test="install-button"]',
+    ];
+
+    for (const sel of selectors) {
+      document.querySelectorAll(sel).forEach(btn => {
+        if (btn._snaoHooked) return;
+        btn._snaoHooked = true;
+        btn.addEventListener('click', async (e) => {
+          // Estrai l'extension ID dall'URL della pagina
+          const match = window.location.href.match(/\/detail\/[^\/]+\/([a-z]{32})/);
+          if (match) {
+            e.preventDefault();
+            e.stopPropagation();
+            const extId = match[1];
+            const crxUrl = `https://clients2.google.com/service/update2/crx?response=redirect&acceptformat=crx3&x=id%3D${extId}%26installsource%3Dondemand%26uc`;
+            ipcRenderer.invoke('webstore-install', { url: crxUrl, extId });
+          }
+        }, true);
+      });
+    }
+  }
+
+  // Osserva i cambiamenti al DOM (il Web Store è una SPA)
+  const obs = new MutationObserver(() => hookInstallButtons());
+  document.addEventListener('DOMContentLoaded', () => {
+    hookInstallButtons();
+    obs.observe(document.body, { childList: true, subtree: true });
+  });
+} catch(e) {}
