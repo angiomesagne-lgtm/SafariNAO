@@ -21,4 +21,4 @@ SafariNAO is more than just a browser; it's an Italian open-source initiative. W
 ## 📦 Installation & Setup
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/your-username/SafariNAO.git](https://github.com/astrymolly-ui/SafariNAO.git)
+   git clone [https://github.com/your-username/SafariNAO.git](https://github.com/angiomesagne-lgtm/SafariNAO.git)
